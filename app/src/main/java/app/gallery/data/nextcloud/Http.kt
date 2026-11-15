@@ -1,6 +1,8 @@
 package app.gallery.data.nextcloud
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
@@ -63,18 +65,28 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
     cont.invokeOnCancellation { runCatching { cancel() } }
 }
 
-/** Runs the request and returns the body as text, throwing HttpException for non-2xx answers. */
-suspend fun OkHttpClient.text(req: Request): String = newCall(req).await().use { r ->
-    val body = r.body.string()
-    if (!r.isSuccessful) throw HttpException(r.code, r.message.ifBlank { req.url.encodedPath }, body.take(500))
-    body
+/**
+ * Runs the request and returns the body as text, throwing HttpException for non-2xx answers.
+ * The body is read on the IO dispatcher: `await()` resumes on the caller's thread (often Main),
+ * and reading an HTTPS body there throws NetworkOnMainThreadException.
+ */
+suspend fun OkHttpClient.text(req: Request): String = withContext(Dispatchers.IO) {
+    newCall(req).await().use { r ->
+        val body = r.body.string()
+        if (!r.isSuccessful) throw HttpException(r.code, r.message.ifBlank { req.url.encodedPath }, body.take(500))
+        body
+    }
 }
 
-suspend fun OkHttpClient.send(req: Request): Response {
+/**
+ * Runs a request whose answer only matters for its status and headers (PUT, MOVE, MKCOL...).
+ * The body is drained and closed on the IO dispatcher; the returned Response keeps its headers.
+ */
+suspend fun OkHttpClient.send(req: Request): Response = withContext(Dispatchers.IO) {
     val r = newCall(req).await()
-    if (!r.isSuccessful) {
-        val body = r.use { it.body.string().take(500) }
-        throw HttpException(r.code, r.message.ifBlank { req.url.encodedPath }, body)
+    r.use {
+        val body = it.body.string()
+        if (!it.isSuccessful) throw HttpException(it.code, it.message.ifBlank { req.url.encodedPath }, body.take(500))
     }
-    return r
+    r
 }
