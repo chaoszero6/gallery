@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gallery.data.model.MediaItem
 import app.gallery.ui.LocalContainer
+import app.gallery.ui.sharedMedia
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 
@@ -55,6 +56,7 @@ fun MediaThumb(
     notBackedUp: Boolean = false,
     compact: Boolean = false,
     onExpand: (() -> Unit)? = null,
+    sharedKey: String? = null,
 ) {
     val images = LocalContainer.current.images
     val px = with(LocalDensity.current) { sizeDp.toPx() }.toInt()
@@ -66,7 +68,8 @@ fun MediaThumb(
             .build()
     }
     Box(modifier.background(Color(0x14888888))) {
-        AsyncImage(model = model, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        // Only the picture takes part in the grid <-> viewer animation, not the badges and labels on top.
+        AsyncImage(model = model, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().let { if (sharedKey != null) it.sharedMedia(sharedKey) else it })
         if (!compact) {
             if (item.isVideo) {
                 Row(Modifier.align(Alignment.BottomStart).padding(5.dp), verticalAlignment = Alignment.CenterVertically) {

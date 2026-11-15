@@ -63,6 +63,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -200,9 +204,8 @@ fun ViewerContent(
                     // The preview stays underneath as the shared element and as the "shutter" until the
                     // first video frame is drawn, so opening and closing animate like a photo.
                     val playingHere = isCurrent && started && settled
-                    if (!(playingHere && video?.firstFrame == true)) {
-                        AsyncImage(previewRequest(m, 1024), m.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().sharedMediaIf(page == pager.currentPage, m.key))
-                    }
+                    // Kept composed (just hidden) under the playing video so it is loaded and ready to fly back on close.
+                    SharedPreview(m, 1024, shared = page == pager.currentPage, visible = !(playingHere && video?.revealed == true))
                     if (playingHere) {
                         VideoPlayer(m, playing = true, showControls = chrome, modifier = Modifier.fillMaxSize(), onState = { video = it }, onTap = { chrome = !chrome })
                     } else {
@@ -291,16 +294,44 @@ private fun PhotoPage(m: MediaItem, shared: Boolean, onTap: () -> Unit, onZoom: 
     val c = LocalContainer.current
     val zs = rememberZoomableState()
     LaunchedEffect(zs) { snapshotFlow { zs.zoomFraction ?: 0f }.collect(onZoom) }
+    // While the open/close animation runs only the flying preview may be visible; showing the
+    // full image in place at the same time looked like two photos moving.
+    val settled = transitionSettled()
     Box(Modifier.fillMaxSize()) {
         // Low-res preview underneath so the image appears at once; full image loads on top.
-        AsyncImage(previewRequest(m, 512), null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().sharedMediaIf(shared, m.key))
+        SharedPreview(m, 512, shared = shared, visible = true)
         ZoomableAsyncImage(
             model = c.images.full(m),
             contentDescription = m.name,
             state = rememberZoomableImageState(zs),
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().alpha(if (settled || !shared) 1f else 0f),
             onClick = { onTap() },
+        )
+    }
+}
+
+/**
+ * The image that flies between the grid and the viewer. Its box has the photo's own aspect ratio,
+ * so the animation morphs the square grid tile into the photo's outline instead of into the whole
+ * screen (which blew the cropped tile up to full screen on close).
+ */
+@Composable
+private fun SharedPreview(m: MediaItem, size: Int, shared: Boolean, visible: Boolean) {
+    var aspect by remember(m.key) {
+        mutableFloatStateOf(if (m.width > 0 && m.height > 0) m.width.toFloat() / m.height else 0f)
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AsyncImage(
+            previewRequest(m, size), m.name, contentScale = ContentScale.Fit,
+            onState = { st ->
+                // Decoded thumbnails are already rotated upright, so trust them over MediaStore sizes.
+                val sz = st.painter?.intrinsicSize
+                if (sz != null && sz.isSpecified && sz.width > 0f && sz.height > 0f) aspect = sz.width / sz.height
+            },
+            modifier = (if (aspect > 0f) Modifier.aspectRatio(aspect) else Modifier.fillMaxSize())
+                .sharedMediaIf(shared, m.key)
+                .alpha(if (visible) 1f else 0f),
         )
     }
 }

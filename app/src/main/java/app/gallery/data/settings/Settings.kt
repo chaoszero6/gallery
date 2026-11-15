@@ -9,7 +9,13 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -85,6 +91,9 @@ class Settings(private val context: Context) {
             hiddenAlbums = p[K.hidden] ?: emptySet(),
         )
     }
+
+    /** [ui] kept hot, so screens that come back into view get the settings on their first frame. */
+    val uiState: StateFlow<UiSettings?> = ui.stateIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.Eagerly, null)
 
     val backup: Flow<BackupSettings> = context.store.data.map { p -> p.toBackup() }
 

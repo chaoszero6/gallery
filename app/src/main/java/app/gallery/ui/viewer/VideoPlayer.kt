@@ -39,8 +39,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -74,6 +76,8 @@ class VideoState(val player: Player) {
     var durationMs by mutableLongStateOf(0L)
     var muted by mutableStateOf(false)
     var firstFrame by mutableStateOf(false)
+    /** First frame drawn and laid out at the video's real size; until then the preview image shows. */
+    var revealed by mutableStateOf(false)
 
     fun togglePlay() {
         if (player.isPlaying) player.pause()
@@ -132,6 +136,12 @@ fun VideoPlayer(
     }
     LaunchedEffect(playing) { player.playWhenReady = playing; if (!playing) player.pause() }
 
+    // The first frame can be drawn before the frame is resized to the video's aspect ratio, which
+    // showed one stretched frame; wait two frames after it before revealing the video.
+    LaunchedEffect(state.firstFrame) {
+        if (state.firstFrame) { withFrameNanos { }; withFrameNanos { }; state.revealed = true }
+    }
+
     // Position ticker for the seek bar.
     LaunchedEffect(state.isPlaying) {
         while (true) {
@@ -166,7 +176,7 @@ fun VideoPlayer(
             surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
             contentScale = ContentScale.Fit,
             shutter = {}, // the preview image behind us acts as the shutter
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().alpha(if (state.revealed) 1f else 0f),
         )
         if (!loop) {
             AnimatedVisibility(showControls, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {

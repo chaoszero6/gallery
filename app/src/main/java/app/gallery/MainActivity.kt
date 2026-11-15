@@ -130,6 +130,12 @@ class MainActivity : ComponentActivity() {
                     startDestination = Routes.HOME,
                     enterTransition = { fadeIn() },
                     exitTransition = { fadeOut() },
+                    popEnterTransition = { fadeIn() },
+                    popExitTransition = { fadeOut() },
+                    // Navigation's default back animation shrinks the whole page to 70%; Samsung Gallery
+                    // just fades the page while the photo flies back to its thumbnail.
+                    predictivePopEnterTransition = { fadeIn() },
+                    predictivePopExitTransition = { fadeOut() },
                 ) {
                     screen(Routes.HOME) { HomeScreen(nav) }
                     screen(Routes.GRID) { GridScreen(nav, it.arguments?.getString("id")) }

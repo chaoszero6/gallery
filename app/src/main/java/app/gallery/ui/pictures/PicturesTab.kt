@@ -70,7 +70,7 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
     val loaded by c.media.localLoaded.collectAsState()
     val syncing by c.media.syncing.collectAsState()
     val account by c.accounts.account.collectAsState()
-    val uiLoaded by c.settings.ui.collectAsState(null)
+    val uiLoaded by c.settings.uiState.collectAsState()
     val ui = uiLoaded ?: UiSettings(tipDismissed = true)
     val backup by c.settings.backup.collectAsState(BackupSettings())
     val scope = rememberCoroutineScope()

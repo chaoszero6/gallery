@@ -63,7 +63,8 @@ import androidx.compose.ui.unit.toIntRect
 import app.gallery.data.model.DayIds
 import app.gallery.data.model.MediaItem
 import app.gallery.ui.ViewerFocus
-import app.gallery.ui.sharedMedia
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
 import app.gallery.ui.theme.G
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -197,12 +198,17 @@ fun MediaGrid(
     val focusKey = ViewerFocus.key
     LaunchedEffect(focusKey) {
         val k = focusKey ?: return@LaunchedEffect
+        // Wait for the first layout (the restored scroll position) before deciding anything.
+        snapshotFlow { state.layoutInfo.visibleItemsInfo.isNotEmpty() }.first { it }
         val idx = currentEntries.indexOfFirst { it.key == k }.takeIf { it >= 0 } ?: return@LaunchedEffect
         val target = idx + headerCount
         val info = state.layoutInfo
         val vis = info.visibleItemsInfo.firstOrNull { it.index == target }
         val fullyVisible = vis != null && vis.offset.y >= info.viewportStartOffset && vis.offset.y + vis.size.height <= info.viewportEndOffset
-        if (!fullyVisible) state.scrollToItem(target, -(info.viewportEndOffset - info.viewportStartOffset) / 3)
+        if (!fullyVisible) {
+            state.scrollToItem(target)
+            state.scrollBy(-(info.viewportEndOffset - info.viewportStartOffset) / 3f)
+        }
     }
 
     var autoScroll by remember { mutableFloatStateOf(0f) }
@@ -301,9 +307,9 @@ fun MediaGrid(
                         notBackedUp = notBackedUp(m),
                         compact = compact,
                         onExpand = { onOpen(m) },
+                        sharedKey = m.key,
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .sharedMedia(m.key)
                             .clickable {
                                 if (selection.active) selection.toggle(m.key) else onOpen(m)
                             },
