@@ -210,6 +210,11 @@ fun VideoPlayer(
                 if (playbackState == Player.STATE_ENDED) state.positionMs = state.durationMs
             }
             override fun onRenderedFirstFrame() { state.firstFrame = true }
+            // Streamed (HLS) videos can learn their length after playback starts.
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                val d = player.duration
+                if (d > 0) state.durationMs = d
+            }
         }
         player.addListener(l)
         reportState(state)
@@ -235,9 +240,13 @@ fun VideoPlayer(
                     Modifier.size(64.dp).clip(CircleShape).background(Color(0x66000000)).clickable { state.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Crossfade(showLoader, label = "loader") { l ->
-                        if (l) VideoLoader(Modifier.size(64.dp))
-                        else Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.isPlaying) "Pause" else "Play", Modifier.size(40.dp), tint = Color.White)
+                    // Both states fill the circle and centre their content, so the icon does not
+                    // jump when the loader hands over to it.
+                    Crossfade(showLoader, Modifier.fillMaxSize(), label = "loader") { l ->
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (l) VideoLoader(Modifier.fillMaxSize())
+                            else Icon(if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (state.isPlaying) "Pause" else "Play", Modifier.size(40.dp), tint = Color.White)
+                        }
                     }
                 }
             }
@@ -321,6 +330,12 @@ private fun WavySeekLine(
     }
     var widthPx by remember { mutableIntStateOf(1) }
     val currentFraction by rememberUpdatedState(fraction)
+    // The gesture handlers below are installed once; read the latest callbacks through these, or
+    // they keep the video length from the first frame (0 for a cloud video still loading) and
+    // every drag seeks back to the start.
+    val start by rememberUpdatedState(onDragStart)
+    val move by rememberUpdatedState(onDrag)
+    val end by rememberUpdatedState(onDragEnd)
     val density = LocalDensity.current
     Box(modifier.height(44.dp).onSizeChanged { widthPx = it.width.coerceAtLeast(1) }) {
         Canvas(
@@ -328,16 +343,16 @@ private fun WavySeekLine(
                 .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) }
                 .pointerInput(Unit) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
-                    detectTapGestures { o -> onDragStart(at(o.x)); onDragEnd(at(o.x)) }
+                    detectTapGestures { o -> start(at(o.x)); end(at(o.x)) }
                 }
                 .pointerInput(Unit) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
                     var f = 0f
                     detectHorizontalDragGestures(
-                        onDragStart = { o -> f = at(o.x); onDragStart(f) },
-                        onHorizontalDrag = { change, _ -> change.consume(); f = at(change.position.x); onDrag(f) },
-                        onDragEnd = { onDragEnd(f) },
-                        onDragCancel = { onDragEnd(currentFraction) },
+                        onDragStart = { o -> f = at(o.x); start(f) },
+                        onHorizontalDrag = { change, _ -> change.consume(); f = at(change.position.x); move(f) },
+                        onDragEnd = { end(f) },
+                        onDragCancel = { end(currentFraction) },
                     )
                 },
         ) {
