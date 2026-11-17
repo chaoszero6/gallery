@@ -94,6 +94,7 @@ import app.gallery.ui.components.PillIcon
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.sharedMediaIf
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import kotlinx.coroutines.delay
@@ -233,10 +234,10 @@ fun ViewerContent(
                 CircleBackButton { if (details) details = false else onBack() }
                 Box(Modifier.weight(1f))
                 TopIconPill {
-                    if (current.isRemoteOnly) PillIcon(Icons.Rounded.Cloud, "On Nextcloud", tint = G.colors.textSecondary) {}
+                    if (current.isRemoteOnly) PillIcon(Sym.Cloud, "On Nextcloud", tint = G.colors.textSecondary) {}
                     PillIcon(Icons.Rounded.Slideshow, "Slideshow") { slideshow = true; chrome = false; details = false }
                     if (actions != null) Box {
-                        PillIcon(Icons.Rounded.MoreVert, "More options") { menu = true }
+                        PillIcon(Sym.MoreVert, "More options") { menu = true }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem({ Text("Details") }, { menu = false; details = true })
                             DropdownMenuItem({ Text("Add to album") }, { menu = false; actions.addToAlbum(listOf(current)) })
@@ -260,13 +261,13 @@ fun ViewerContent(
                 if (current.isVideo && v != null) VideoSeekBar(v)
                 else Filmstrip(items, pager.currentPage) { i -> scope.launch { pager.scrollToPage(i) } }
                 if (actions != null) FloatingActionPill(Modifier.padding(top = 10.dp)) {
-                    PillAction(if (current.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null, tint = if (current.isFavorite) Color(0xFFFF4D5E) else null) {
+                    PillAction(if (current.isFavorite) Sym.FavoriteFilled else Sym.Favorite, null, tint = if (current.isFavorite) Color(0xFFFF4D5E) else null) {
                         actions.setFavorite(listOf(current), !current.isFavorite)
                     }
-                    PillAction(Icons.Rounded.Edit, null) { actions.edit(current) }
-                    PillAction(Icons.Outlined.Info, null) { details = true }
-                    PillAction(Icons.Rounded.Share, null) { actions.share(listOf(current)) }
-                    PillAction(Icons.Rounded.DeleteOutline, null) { actions.delete(listOf(current)) }
+                    PillAction(Sym.Edit, null) { actions.edit(current) }
+                    PillAction(Sym.Info, null) { details = true }
+                    PillAction(Sym.Share, null) { actions.share(listOf(current)) }
+                    PillAction(Sym.Trash, null) { actions.delete(listOf(current)) }
                 }
             }
         }
@@ -341,7 +342,7 @@ private fun LiveBadge(m: MediaItem, modifier: Modifier) {
     val c = LocalContainer.current
     var playing by remember(m.key) { mutableStateOf(false) }
     Text(
-        "LIVE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = G.colors.text,
+        "LIVE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = G.colors.text,
         modifier = modifier.clip(RoundedCornerShape(12.dp)).background(G.colors.pill).clickable { playing = !playing }.padding(horizontal = 10.dp, vertical = 5.dp),
     )
     if (playing) {

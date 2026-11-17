@@ -62,6 +62,7 @@ import app.gallery.ui.components.TopFade
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.openViewer
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 import kotlinx.coroutines.launch
 
 @Composable
@@ -105,7 +106,7 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
             level = level,
             onLevelChange = { level = it; scope.launch { c.settings.setGridLevel(it) } },
             onOpen = { nav.openViewer(items, it, MediaSource.Timeline) },
-            contentPadding = PaddingValues(top = top + 72.dp, bottom = bottom + 110.dp),
+            contentPadding = PaddingValues(top = top + 47.dp, bottom = bottom + 110.dp),
             notBackedUp = { m: MediaItem -> showBadges && remoteLoaded && m.isLocalOnly && m.bucketId != null && m.bucketId in buckets },
             header = if (showTip) {
                 {
@@ -134,18 +135,17 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
                 AnimatedVisibility(syncing, enter = fadeIn(), exit = fadeOut()) {
                     CircularProgressIndicator(Modifier.padding(end = 12.dp).size(20.dp), strokeWidth = 2.dp, color = G.colors.textSecondary)
                 }
-                TopIconPill {
+                TopIconPill(plain = true) {
                     PillIcon(
                         when {
-                            account == null -> Icons.Outlined.Cloud
-                            !reachable -> Icons.Outlined.CloudOff // server down: phone photos and cached ones still work
-                            else -> Icons.Outlined.CloudSync
+                            account != null && !reachable -> Sym.CloudOff // server down: phone photos and cached ones still work
+                            else -> Sym.Cloud
                         },
                         if (account != null && !reachable) "Nextcloud unreachable" else "Nextcloud backup",
                     ) { nav.navigate(Routes.NEXTCLOUD) }
-                    PillIcon(Icons.Rounded.Search, "Search") { nav.navigate(Routes.SEARCH) }
+                    PillIcon(Sym.Search, "Search") { nav.navigate(Routes.SEARCH) }
                     Box {
-                        PillIcon(Icons.Rounded.MoreVert, "More options") { menu = true }
+                        PillIcon(Sym.MoreVert, "More options") { menu = true }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem({ Text("Select") }, { menu = false; selection.start() })
                             if (account != null) DropdownMenuItem({ Text("Refresh from Nextcloud") }, { menu = false; scope.launch { c.media.syncRemote() } })

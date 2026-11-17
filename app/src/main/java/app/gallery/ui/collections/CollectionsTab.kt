@@ -60,6 +60,7 @@ import app.gallery.ui.map.ClusterMap
 import app.gallery.ui.openClusters
 import app.gallery.ui.openGrid
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -93,7 +94,7 @@ fun CollectionsTab(nav: NavController) {
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x33F4B8A8), G.colors.background, G.colors.background)))) {
-        LazyColumn(contentPadding = PaddingValues(top = top + 64.dp, bottom = bottom + 110.dp)) {
+        LazyColumn(contentPadding = PaddingValues(top = top + 58.dp, bottom = bottom + 110.dp)) {
             // Stories (On this day)
             item(key = "stories") {
                 SectionHeader("Stories")
@@ -112,9 +113,9 @@ fun CollectionsTab(nav: NavController) {
             if (account == null) item(key = "connect") {
                 Spacer(Modifier.height(16.dp))
                 Column(Modifier.padding(horizontal = 14.dp).clip(RoundedCornerShape(G.cardRadius)).background(G.colors.surface).padding(20.dp)) {
-                    Text("People, places and map", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+                    Text("People, places and map", fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
                     Spacer(Modifier.height(6.dp))
-                    Text("Connect your Nextcloud with Memories to browse faces, places, tags and a map of your photos.", color = G.colors.textSecondary, fontSize = 15.sp)
+                    Text("Connect your Nextcloud with Memories to browse faces, places, tags and a map of your photos.", color = G.colors.textSecondary, fontSize = 13.sp)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextPill("Connect", dark = true) { nav.navigate(Routes.NEXTCLOUD) } }
                 }
@@ -143,8 +144,8 @@ fun CollectionsTab(nav: NavController) {
         }
         TopFade(Modifier.align(Alignment.TopCenter), height = 86.dp)
         BottomFade(Modifier.align(Alignment.BottomCenter))
-        TopIconPill(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 10.dp, end = 12.dp)) {
-            PillIcon(Icons.Rounded.Search, "Search") { nav.navigate(Routes.SEARCH) }
+        TopIconPill(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 10.dp, end = 12.dp), plain = true) {
+            PillIcon(Sym.Search, "Search") { nav.navigate(Routes.SEARCH) }
         }
     }
 }
@@ -161,11 +162,11 @@ private fun StoryHero(s: Story, onClick: () -> Unit) {
         CoverImage(cover?.let { images.preview(it, 1024) }, Modifier.fillMaxSize(), radius = 0.dp)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color(0xAA000000))))
         Column(Modifier.align(Alignment.BottomStart).padding(22.dp)) {
-            Text("On this day", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-            Text(s.title + (cover?.let { " · " + DayIds.toLocalDate(it.dayId).format(DateTimeFormatter.ofPattern("d MMM yyyy")) } ?: ""), color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
+            Text("On this day", color = Color.White, fontSize = 20.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(s.title + (cover?.let { " · " + DayIds.toLocalDate(it.dayId).format(DateTimeFormatter.ofPattern("d MMM yyyy")) } ?: ""), color = Color.White.copy(alpha = 0.9f), fontSize = 13.sp)
         }
         Text(
-            "${s.items.size}", color = Color.White, fontSize = 13.sp,
+            "${s.items.size}", color = Color.White, fontSize = 11.sp,
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x55000000)).padding(horizontal = 12.dp, vertical = 5.dp),
         )
     }
@@ -178,8 +179,8 @@ private fun StoryCard(s: Story, w: Dp, onClick: () -> Unit) {
         CoverImage(s.items.firstOrNull()?.let { images.preview(it, 512) }, Modifier.fillMaxSize(), radius = 0.dp)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0x99000000))))
         Column(Modifier.align(Alignment.BottomCenter).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(s.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            s.items.firstOrNull()?.let { Text(DayIds.toLocalDate(it.dayId).year.toString(), color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp) }
+            Text(s.title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            s.items.firstOrNull()?.let { Text(DayIds.toLocalDate(it.dayId).year.toString(), color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp) }
         }
     }
 }
@@ -193,7 +194,7 @@ fun ClusterRow(list: List<Cluster>, label: (Cluster) -> String = { it.name }, on
                 CoverImage(nc.clusterPreviewUrl(cl), Modifier.fillMaxSize(), radius = 0.dp)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0x99000000))))
                 Text(
-                    label(cl), color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                    label(cl), color = Color.White, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 6.dp, vertical = 8.dp),
                 )
             }
@@ -204,8 +205,8 @@ fun ClusterRow(list: List<Cluster>, label: (Cluster) -> String = { it.name }, on
 @Composable
 private fun InfoCard(title: String, body: String) {
     Column(Modifier.padding(horizontal = 14.dp).fillMaxWidth().clip(RoundedCornerShape(G.cardRadius)).background(G.colors.surface).padding(22.dp)) {
-        Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+        Text(title, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
         Spacer(Modifier.height(4.dp))
-        Text(body, fontSize = 15.sp, color = G.colors.textSecondary)
+        Text(body, fontSize = 13.sp, color = G.colors.textSecondary)
     }
 }

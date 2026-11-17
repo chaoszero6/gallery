@@ -68,6 +68,7 @@ import app.gallery.ui.components.TopFade
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.openGrid
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 import kotlinx.coroutines.launch
 
 /** One album card's data. */
@@ -140,26 +141,26 @@ fun AlbumsTab(nav: NavController, @Suppress("UNUSED_PARAMETER") onSelectionMode:
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = top + 66.dp, bottom = bottom + 110.dp),
+            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = top + 58.dp, bottom = bottom + 110.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             sections.forEachIndexed { i, (title, cards) ->
                 item(key = "h-$title", span = { GridItemSpan(2) }) {
-                    if (i == 0) SectionHeader(title, Modifier.padding(start = 0.dp), action = "View all", onClick = { nav.navigate(Routes.ALBUMS_ALL) })
-                    else SectionHeader(title)
+                    if (i == 0) SectionHeader(title, Modifier.padding(start = 0.dp), action = "View all", size = 14.sp, onClick = { nav.navigate(Routes.ALBUMS_ALL) })
+                    else SectionHeader(title, size = 14.sp)
                 }
                 items(cards, key = { it.key }) { a -> AlbumCard(a) { nav.openGrid(a.args) } }
             }
         }
         TopFade(Modifier.align(Alignment.TopCenter), height = 90.dp)
         BottomFade(Modifier.align(Alignment.BottomCenter))
-        TopIconPill(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 10.dp, end = 12.dp)) {
-            if (account != null) PillIcon(Icons.Rounded.Add, "Create album") { actions.createAlbum() }
-            PillIcon(Icons.Rounded.Search, "Search") { nav.navigate(Routes.SEARCH) }
+        TopIconPill(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 10.dp, end = 12.dp), plain = true) {
+            if (account != null) PillIcon(Sym.Add, "Create album") { actions.createAlbum() }
+            PillIcon(Sym.Search, "Search") { nav.navigate(Routes.SEARCH) }
             Box {
-                PillIcon(Icons.Rounded.MoreVert, "More options") { menu = true }
+                PillIcon(Sym.MoreVert, "More options") { menu = true }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem({ Text("View all") }, { menu = false; nav.navigate(Routes.ALBUMS_ALL) })
                     if (account != null) DropdownMenuItem({ Text("Refresh Nextcloud albums") }, { menu = false; scope.launch { c.nextcloud.clusters("albums", true) } })
@@ -189,8 +190,8 @@ fun AlbumCard(a: AlbumCardData, small: Boolean = false, onClick: () -> Unit) {
                 }
             }
             Column(Modifier.align(Alignment.BottomCenter).padding(bottom = if (small) 8.dp else 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(a.title, fontSize = if (small) 14.sp else 18.sp, color = G.colors.text, fontWeight = FontWeight.Medium, maxLines = 1)
-                Text(a.count.toString(), fontSize = if (small) 12.sp else 14.sp, color = G.colors.textSecondary)
+                Text(a.title, fontSize = if (small) 10.sp else 13.sp, color = G.colors.text, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(a.count.toString(), fontSize = if (small) 8.5.sp else 10.sp, color = G.colors.textSecondary)
             }
         } else {
             CoverImage(a.cover, Modifier.fillMaxSize(), radius = 0.dp)
@@ -199,8 +200,8 @@ fun AlbumCard(a: AlbumCardData, small: Boolean = false, onClick: () -> Unit) {
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 10.dp, vertical = if (small) 8.dp else 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(a.title, fontSize = if (small) 14.sp else 18.sp, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(a.count.toString(), fontSize = if (small) 12.sp else 14.sp, color = Color.White.copy(alpha = 0.85f))
+                Text(a.title, fontSize = if (small) 10.sp else 13.sp, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(a.count.toString(), fontSize = if (small) 8.5.sp else 10.sp, color = Color.White.copy(alpha = 0.85f))
             }
             if (a.cloud) {
                 Icon(if (a.shared) Icons.Rounded.People else Icons.Rounded.Cloud, null, Modifier.align(Alignment.TopEnd).padding(10.dp).size(18.dp), tint = Color.White)

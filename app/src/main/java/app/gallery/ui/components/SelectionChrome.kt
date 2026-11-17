@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import app.gallery.data.model.MediaItem
 import app.gallery.ui.actions.MediaActions
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 
 /** Top of selection mode: "○ 3" pill (tap = select all) and a "Cancel" pill. */
 @Composable
@@ -41,7 +42,7 @@ fun SelectionTopBar(selection: SelectionState, allKeys: List<String>, modifier: 
         ) {
             SelectMark(all, dark = true)
             HGap(12)
-            Text(if (selection.keys.isEmpty()) "Select items" else "${selection.keys.size}", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text(if (selection.keys.isEmpty()) "Select items" else "${selection.keys.size}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
         }
         Box(Modifier.weight(1f))
         TextPill("Cancel") { selection.clear() }
@@ -53,9 +54,9 @@ fun SelectionTopBar(selection: SelectionState, allKeys: List<String>, modifier: 
 fun SelectionBottomBar(selected: List<MediaItem>, actions: MediaActions, modifier: Modifier = Modifier) {
     val any = selected.isNotEmpty()
     FloatingActionPill(modifier) {
-        PillAction(Icons.Rounded.Share, "Share", any) { actions.share(selected) }
-        PillAction(Icons.Rounded.DeleteOutline, "Delete", any) { actions.delete(selected) }
-        PillAction(Icons.Rounded.AddPhotoAlternate, "Album", any) { actions.addToAlbum(selected) }
-        PillAction(Icons.Rounded.MoreVert, "More", any) { actions.more(selected) }
+        PillAction(Sym.Share, "Share", any) { actions.share(selected) }
+        PillAction(Sym.Trash, "Delete", any) { actions.delete(selected) }
+        PillAction(Sym.AddPhoto, "Album", any) { actions.addToAlbum(selected) }
+        PillAction(Sym.MoreVert, "More", any) { actions.more(selected) }
     }
 }

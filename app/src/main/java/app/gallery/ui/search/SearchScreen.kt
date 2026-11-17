@@ -141,11 +141,11 @@ fun SearchScreen(nav: NavController) {
         } else {
             LazyColumn(contentPadding = PaddingValues(top = top + 76.dp, bottom = 140.dp)) {
                 if (suggestions.isNotEmpty()) item {
-                    Text("You might be looking for", fontSize = 24.sp, color = G.colors.text, modifier = Modifier.padding(start = 22.dp, bottom = 16.dp))
+                    Text("You might be looking for", fontSize = 20.5.sp, color = G.colors.text, modifier = Modifier.padding(start = 22.dp, bottom = 16.dp))
                     FlowRow(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         suggestions.forEach { s ->
                             Text(
-                                s, fontSize = 17.sp, color = G.colors.text,
+                                s, fontSize = 14.5.sp, color = G.colors.text,
                                 modifier = Modifier.shadow(3.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(G.colors.surface)
                                     .clickable { submit(s) }.padding(horizontal = 18.dp, vertical = 11.dp),
                             )
@@ -156,8 +156,8 @@ fun SearchScreen(nav: NavController) {
                 if (recent.isNotEmpty()) {
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Recent searches", fontSize = 16.sp, color = G.colors.textSecondary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            Text("Clear all", color = G.colors.accent, fontSize = 16.sp, modifier = Modifier.clickable { scope.launch { c.search.clearRecent() } })
+                            Text("Recent searches", fontSize = 13.5.sp, color = G.colors.textSecondary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("Clear all", color = G.colors.accent, fontSize = 13.5.sp, modifier = Modifier.clickable { scope.launch { c.search.clearRecent() } })
                         }
                     }
                     item {
@@ -166,7 +166,7 @@ fun SearchScreen(nav: NavController) {
                                 Row(Modifier.fillMaxWidth().clickable { submit(rs.query) }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     val thumb = rs.thumbKey?.let { c.media.item(it) }?.let { c.images.thumb(it) }
                                     CoverImage(thumb, Modifier.size(48.dp), radius = 24.dp)
-                                    Text(rs.query, fontSize = 17.sp, color = G.colors.text, modifier = Modifier.weight(1f).padding(start = 16.dp))
+                                    Text(rs.query, fontSize = 14.5.sp, color = G.colors.text, modifier = Modifier.weight(1f).padding(start = 16.dp))
                                     Icon(Icons.Rounded.Close, "Delete", Modifier.clickable { scope.launch { c.search.forget(rs.query) } }.padding(8.dp).size(18.dp), tint = G.colors.textSecondary)
                                 }
                             }
@@ -178,13 +178,13 @@ fun SearchScreen(nav: NavController) {
                     Column(Modifier.padding(horizontal = 22.dp, vertical = 24.dp)) {
                         val n = total.size
                         if (!c.searchIndexer.clip.available) {
-                            Text("Sentence search model not installed in this build; searching names, dates, labels and Nextcloud.", fontSize = 13.sp, color = G.colors.textSecondary)
+                            Text("Sentence search model not installed in this build; searching names, dates, labels and Nextcloud.", fontSize = 11.sp, color = G.colors.textSecondary)
                         } else if (n > 0 && indexed < n) {
-                            Text("Smart search has looked at $indexed of $n items" + if (status.running) " — indexing…" else "", fontSize = 13.sp, color = G.colors.textSecondary)
+                            Text("Smart search has looked at $indexed of $n items" + if (status.running) " — indexing…" else "", fontSize = 11.sp, color = G.colors.textSecondary)
                             Spacer(Modifier.height(6.dp))
                             LinearProgressIndicator({ indexed.toFloat() / n }, Modifier.fillMaxWidth())
                             if (!status.running) Text(
-                                "Index now", color = G.colors.accent, fontSize = 14.sp,
+                                "Index now", color = G.colors.accent, fontSize = 12.sp,
                                 modifier = Modifier.padding(top = 8.dp).clickable { if (backgroundAllowed) startIndexing() else askBackground = true },
                             )
                         }
@@ -197,7 +197,7 @@ fun SearchScreen(nav: NavController) {
         Row(Modifier.statusBarsPadding().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleBackButton { if (submitted != null) { submitted = null; results = null } else nav.popBackStack() }
             if (submitted != null) Text(
-                if (busy) "Searching…" else "Search results", fontSize = 22.sp, color = G.colors.text, modifier = Modifier.padding(start = 16.dp),
+                if (busy) "Searching…" else "Search results", fontSize = 18.5.sp, color = G.colors.text, modifier = Modifier.padding(start = 16.dp),
             )
         }
 
@@ -213,10 +213,10 @@ fun SearchScreen(nav: NavController) {
         ) {
             if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Icon(Icons.Rounded.Search, null, tint = G.colors.textSecondary)
             Box(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                if (query.isEmpty()) Text("What are you looking for?", fontSize = 17.sp, color = Color(0xFF7867E8))
+                if (query.isEmpty()) Text("What are you looking for?", fontSize = 14.5.sp, color = Color(0xFF7867E8))
                 BasicTextField(
                     query, { query = it }, singleLine = true,
-                    textStyle = TextStyle(fontSize = 17.sp, color = G.colors.text),
+                    textStyle = TextStyle(fontFamily = app.gallery.ui.theme.AppFont, fontSize = 14.5.sp, color = G.colors.text),
                     cursorBrush = SolidColor(G.colors.accent),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { submit(query) }),
@@ -261,7 +261,7 @@ private fun ResultsView(nav: NavController, r: SearchResults, top: androidx.comp
             if (r.items.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     "${r.items.size} pictures and videos" + if (r.usedSmartSearch) "" else "",
-                    fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text,
+                    fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text,
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 10.dp),
                 )
             }

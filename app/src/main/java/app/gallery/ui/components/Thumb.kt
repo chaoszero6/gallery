@@ -38,7 +38,7 @@ import app.gallery.ui.sharedMedia
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 
-private val overlayText = TextStyle(color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, shadow = Shadow(Color(0x88000000), blurRadius = 4f))
+private val overlayText = TextStyle(fontFamily = app.gallery.ui.theme.AppFont, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium, shadow = Shadow(Color(0x88000000), blurRadius = 4f))
 
 fun formatDuration(ms: Long): String {
     val s = ms / 1000

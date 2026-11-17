@@ -62,7 +62,8 @@ import app.gallery.data.settings.BackupSettings
 import app.gallery.ui.GridArgs
 import app.gallery.ui.LocalContainer
 import app.gallery.ui.actions.NameDialog
-import app.gallery.ui.components.CircleBackButton
+import app.gallery.ui.components.OneUiTopBar
+import app.gallery.ui.components.OneUiSwitch
 import app.gallery.ui.components.CoverImage
 import app.gallery.ui.components.RoundedSection
 import app.gallery.ui.components.SectionLabel
@@ -87,18 +88,16 @@ fun NextcloudScreen(nav: NavController) {
     val c = LocalContainer.current
     val account by c.accounts.account.collectAsState()
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(top = 70.dp, bottom = 40.dp)) {
-            Row(Modifier.padding(start = 26.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Cloud, null, Modifier.size(30.dp), tint = Color(0xFF0082C9))
-                Text("  Nextcloud", fontSize = 30.sp, color = G.colors.text)
-            }
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        OneUiTopBar("Nextcloud backup & sync") { nav.popBackStack() }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 40.dp)) {
             Text(
                 "Your only cloud: photos are backed up to and shown from your own Nextcloud server with Memories.",
-                fontSize = 15.sp, color = G.colors.textSecondary, modifier = Modifier.padding(start = 26.dp, end = 26.dp, bottom = 16.dp),
+                fontSize = 14.sp, color = G.colors.textSecondary, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 12.dp),
             )
             if (account == null) SignIn() else Connected(nav)
         }
-        CircleBackButton(Modifier.statusBarsPadding().padding(12.dp)) { nav.popBackStack() }
+        }
     }
 }
 
@@ -117,7 +116,7 @@ private fun SignIn() {
 
     RoundedSection {
         Column(Modifier.padding(20.dp)) {
-            Text("Connect your server", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text("Connect your server", fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 server, { server = it }, label = { Text("Server address") }, placeholder = { Text("cloud.example.com") },
@@ -129,13 +128,13 @@ private fun SignIn() {
                     pass, { pass = it }, label = { Text("App password") }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
-                Text("Create one in Nextcloud: Settings › Security › Devices & sessions.", fontSize = 13.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
+                Text("Create one in Nextcloud: Settings › Security › Devices & sessions.", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
             }
-            error?.let { Text(it, color = G.colors.danger, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp)) }
+            error?.let { Text(it, color = G.colors.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp)) }
             waiting?.let {
                 Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text("  $it", fontSize = 15.sp, color = G.colors.text)
+                    Text("  $it", fontSize = 13.sp, color = G.colors.text)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -174,7 +173,7 @@ private fun SignIn() {
     }
     Text(
         "Requires the Memories app (version ${LoginFlow.MIN_MEMORIES_MAJOR} or newer) on your Nextcloud.",
-        fontSize = 13.sp, color = G.colors.textSecondary, modifier = Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp),
+        fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp),
     )
 }
 
@@ -201,14 +200,14 @@ private fun Connected(nav: NavController) {
     val a = account ?: return
     RoundedSection {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 14.dp)) {
-            Text(a.uid, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
-            Text(a.server.removePrefix("https://"), fontSize = 15.sp, color = G.colors.textSecondary)
-            Text("Memories ${a.memoriesVersion}", fontSize = 13.sp, color = G.colors.textSecondary)
+            Text(a.uid, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text(a.server.removePrefix("https://"), fontSize = 13.sp, color = G.colors.textSecondary)
+            Text("Memories ${a.memoriesVersion}", fontSize = 11.sp, color = G.colors.textSecondary)
             if (lastErr != null) {
-                Text("Can't reach the server right now ($lastErr)", fontSize = 13.sp, color = G.colors.danger)
+                Text("Can't reach the server right now ($lastErr)", fontSize = 11.sp, color = G.colors.danger)
                 Text(
                     "Photos on this phone and Nextcloud photos already loaded still work. Changes are saved and sent when the server is back.",
-                    fontSize = 13.sp, color = G.colors.textSecondary,
+                    fontSize = 11.sp, color = G.colors.textSecondary,
                 )
             }
         }
@@ -226,18 +225,18 @@ private fun Connected(nav: NavController) {
     RoundedSection {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
             if (progress.running) {
-                Text("Uploading ${progress.done + 1} of ${progress.total}", fontSize = 16.sp, color = G.colors.text)
-                progress.current?.let { Text(it, fontSize = 13.sp, color = G.colors.textSecondary) }
+                Text("Uploading ${progress.done + 1} of ${progress.total}", fontSize = 13.5.sp, color = G.colors.text)
+                progress.current?.let { Text(it, fontSize = 11.sp, color = G.colors.textSecondary) }
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator({ if (progress.bytesTotal > 0) progress.bytesSent.toFloat() / progress.bytesTotal else 0f }, Modifier.fillMaxWidth())
-                Text("${fmtBytes(progress.bytesSent)} of ${fmtBytes(progress.bytesTotal)}", fontSize = 13.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
+                Text("${fmtBytes(progress.bytesSent)} of ${fmtBytes(progress.bytesTotal)}", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
             } else {
-                Text(if (queued > 0) "$queued waiting to upload" else "Up to date", fontSize = 16.sp, color = G.colors.text)
-                progress.error?.let { Text(it, fontSize = 14.sp, color = G.colors.danger) }
+                Text(if (queued > 0) "$queued waiting to upload" else "Up to date", fontSize = 13.5.sp, color = G.colors.text)
+                progress.error?.let { Text(it, fontSize = 12.sp, color = G.colors.danger) }
             }
-            Text("Last auto-upload: ${ago(s.lastAutoUploadMs)}", fontSize = 13.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
-            Text("Last sync: ${ago(s.lastSyncMs)}${if (s.lastSyncSummary.isNotBlank()) " · ${s.lastSyncSummary}" else ""}", fontSize = 13.sp, color = G.colors.textSecondary)
-            Text("$done backed up by this app", fontSize = 13.sp, color = G.colors.textSecondary)
+            Text("Last auto-upload: ${ago(s.lastAutoUploadMs)}", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
+            Text("Last sync: ${ago(s.lastSyncMs)}${if (s.lastSyncSummary.isNotBlank()) " · ${s.lastSyncSummary}" else ""}", fontSize = 11.sp, color = G.colors.textSecondary)
+            Text("$done backed up by this app", fontSize = 11.sp, color = G.colors.textSecondary)
         }
         if (queued > 0 && !progress.running) { RowDivider(); SettingRow("Upload now", "Waiting items start when the network and charging rules allow") { scope.launch { c.backup.startUploads() } } }
         if (failed > 0) { RowDivider(); SettingRow("Retry $failed failed", records.firstOrNull { it.status == UploadRecord.FAILED }?.error) { scope.launch { c.backup.retryFailed() } } }
@@ -247,10 +246,10 @@ private fun Connected(nav: NavController) {
     SectionLabel("Sync")
     RoundedSection {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 14.dp)) {
-            Text("Check this phone against Nextcloud", fontSize = 17.sp, color = G.colors.text)
+            Text("Check this phone against Nextcloud", fontSize = 14.5.sp, color = G.colors.text)
             Text(
                 "Compares the phone folders you choose with their folders on your server, then uploads the pictures that are missing. Nothing is deleted or overwritten.",
-                fontSize = 14.sp, color = G.colors.textSecondary,
+                fontSize = 12.sp, color = G.colors.textSecondary,
             )
         }
         val syncChosen = s.syncBuckets ?: s.buckets
@@ -266,8 +265,8 @@ private fun Connected(nav: NavController) {
                 Modifier.fillMaxWidth().clickable { toggleSync(b.bucketId) }.padding(start = 38.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(b.bucketName.ifBlank { "Internal storage" }, fontSize = 16.sp, color = G.colors.text, modifier = Modifier.weight(1f))
-                Text("${counts.firstOrNull { it.bucketId == b.bucketId }?.count ?: 0}  ", fontSize = 14.sp, color = G.colors.textSecondary)
+                Text(b.bucketName.ifBlank { "Internal storage" }, fontSize = 13.5.sp, color = G.colors.text, modifier = Modifier.weight(1f))
+                Text("${counts.firstOrNull { it.bucketId == b.bucketId }?.count ?: 0}  ", fontSize = 12.sp, color = G.colors.textSecondary)
                 Checkbox(on, { toggleSync(b.bucketId) })
             }
         }
@@ -282,11 +281,11 @@ private fun Connected(nav: NavController) {
                 is BackupRepository.SyncState.Comparing -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Text("  ${st.step}…", color = G.colors.text)
                 }
-                is BackupRepository.SyncState.Failed -> Text("Couldn't compare: ${st.message}", color = G.colors.danger, fontSize = 14.sp)
+                is BackupRepository.SyncState.Failed -> Text("Couldn't compare: ${st.message}", color = G.colors.danger, fontSize = 12.sp)
                 is BackupRepository.SyncState.Ready -> {
                     val p = st.plan
-                    Text("${p.present.size} on Nextcloud · ${p.missing.size} missing" + if (p.missing.isNotEmpty()) " (${fmtBytes(p.missingBytes)})" else "", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
-                    if (p.missing.isEmpty()) Text("Everything in the chosen folders is on Nextcloud.", fontSize = 14.sp, color = G.colors.textSecondary)
+                    Text("${p.present.size} on Nextcloud · ${p.missing.size} missing" + if (p.missing.isNotEmpty()) " (${fmtBytes(p.missingBytes)})" else "", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+                    if (p.missing.isEmpty()) Text("Everything in the chosen folders is on Nextcloud.", fontSize = 12.sp, color = G.colors.textSecondary)
                     else {
                         val missingItems = p.missing.mapNotNull { m -> c.media.item("L:${m.local.id}") }
                         Spacer(Modifier.height(10.dp))
@@ -296,10 +295,10 @@ private fun Connected(nav: NavController) {
                             }
                         }
                         Text(
-                            "See all missing", color = G.colors.accent, fontSize = 14.sp,
+                            "See all missing", color = G.colors.accent, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 8.dp).clickable { nav.openGrid(GridArgs("Missing on Nextcloud", MediaSource.Items("missing", missingItems.map { it.key }))) },
                         )
-                        Text("Uploads go to ${s.destRoot}" + if (s.perBucketFolder) "/<album>" else "", fontSize = 13.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
+                        Text("Uploads go to ${s.destRoot}" + if (s.perBucketFolder) "/<album>" else "", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
                 BackupRepository.SyncState.Idle -> {}
@@ -336,9 +335,9 @@ private fun Connected(nav: NavController) {
                     .padding(start = 38.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(b.bucketName.ifBlank { "Internal storage" }, fontSize = 16.sp, color = G.colors.text, modifier = Modifier.weight(1f))
-                Text("${counts.firstOrNull { it.bucketId == b.bucketId }?.count ?: 0}  ", fontSize = 14.sp, color = G.colors.textSecondary)
-                Switch(on, { update { c.settings.setBuckets(if (on) s.buckets - b.bucketId else s.buckets + b.bucketId) } })
+                Text(b.bucketName.ifBlank { "Internal storage" }, fontSize = 13.5.sp, color = G.colors.text, modifier = Modifier.weight(1f))
+                Text("${counts.firstOrNull { it.bucketId == b.bucketId }?.count ?: 0}  ", fontSize = 12.sp, color = G.colors.textSecondary)
+                OneUiSwitch(on, { update { c.settings.setBuckets(if (on) s.buckets - b.bucketId else s.buckets + b.bucketId) } })
             }
         }
         RowDivider()

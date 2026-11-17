@@ -37,12 +37,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 
 /** One tab of the floating bottom bar. */
-data class PillTab(val label: String, val icon: ImageVector, val badge: Boolean = false)
+/** [selectedIcon] is the filled version shown on the selected tab (One UI style). */
+data class PillTab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector = icon, val badge: Boolean = false)
 
 /**
  * The floating rounded bottom bar (icon over label, selected tab on a grey lozenge),
@@ -57,7 +63,7 @@ fun FloatingPillBar(
 ) {
     Row(
         modifier
-            .padding(horizontal = G.sideMargin + 4.dp)
+            .padding(horizontal = 28.dp) // One UI's bar stops ~28 dp from the screen edges
             .shadow(14.dp, RoundedCornerShape(40.dp), ambientColor = Color(0x22000000), spotColor = Color(0x33000000))
             .clip(RoundedCornerShape(40.dp))
             .background(G.colors.pill)
@@ -79,12 +85,12 @@ fun FloatingPillBar(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box {
-                        Icon(t.icon, null, Modifier.size(24.dp), tint = G.colors.text)
+                        Icon(if (i == selected) t.selectedIcon else t.icon, null, Modifier.size(24.dp), tint = G.colors.text)
                         if (t.badge) Box(Modifier.align(Alignment.TopEnd).padding(start = 18.dp).size(6.dp).clip(CircleShape).background(Color(0xFFFF6A3D)))
                     }
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        t.label, fontSize = 12.sp, color = G.colors.text, maxLines = 1,
+                        t.label, fontSize = 10.sp, color = G.colors.text, maxLines = 1,
                         fontWeight = if (i == selected) FontWeight.SemiBold else FontWeight.Normal,
                     )
                 }
@@ -98,7 +104,7 @@ fun FloatingPillBar(
 fun FloatingActionPill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier
-            .padding(horizontal = G.sideMargin + 4.dp)
+            .padding(horizontal = 28.dp) // One UI's bar stops ~28 dp from the screen edges
             .shadow(14.dp, RoundedCornerShape(40.dp), ambientColor = Color(0x22000000), spotColor = Color(0x33000000))
             .clip(RoundedCornerShape(40.dp))
             .background(G.colors.pill)
@@ -124,16 +130,20 @@ fun RowScope.PillAction(icon: ImageVector, label: String?, enabled: Boolean = tr
         Icon(icon, label, Modifier.size(24.dp), tint = c)
         if (label != null) {
             Spacer(Modifier.height(2.dp))
-            Text(label, fontSize = 12.sp, color = c, maxLines = 1)
+            Text(label, fontSize = 10.sp, color = c, maxLines = 1)
         }
     }
 }
 
-/** Rounded pill of icon buttons at the top right (Samsung's floating toolbar). */
+/**
+ * Icon buttons at the top right. On the main tabs One UI draws them straight on the page
+ * ([plain]); over photos and maps they sit on a rounded pill.
+ */
 @Composable
-fun TopIconPill(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+fun TopIconPill(modifier: Modifier = Modifier, plain: Boolean = false, content: @Composable RowScope.() -> Unit) {
     Row(
-        modifier
+        if (plain) modifier.height(52.dp).padding(horizontal = 2.dp)
+        else modifier
             .shadow(8.dp, RoundedCornerShape(30.dp), ambientColor = Color(0x18000000), spotColor = Color(0x22000000))
             .clip(RoundedCornerShape(30.dp))
             .background(G.colors.pill)
@@ -163,7 +173,7 @@ fun CircleBackButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .size(52.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, "Back", Modifier.padding(start = 6.dp).size(20.dp), tint = G.colors.text) }
+    ) { Icon(Sym.Back, "Back", Modifier.size(24.dp), tint = G.colors.text) }
 }
 
 /** White pill with text (e.g. "Cancel", "Get started"). */
@@ -178,12 +188,12 @@ fun TextPill(text: String, modifier: Modifier = Modifier, dark: Boolean = false,
             .heightIn(min = 48.dp)
             .padding(horizontal = 22.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = if (dark) Color.White else G.colors.text) }
+    ) { Text(text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = if (dark) Color.White else G.colors.text) }
 }
 
 /** Section title with a chevron on the right ("People  >"). */
 @Composable
-fun SectionHeader(title: String, modifier: Modifier = Modifier, action: String? = null, onClick: (() -> Unit)? = null) {
+fun SectionHeader(title: String, modifier: Modifier = Modifier, action: String? = null, size: androidx.compose.ui.unit.TextUnit = 16.sp, onClick: (() -> Unit)? = null) {
     Row(
         modifier
             .fillMaxWidth()
@@ -191,10 +201,10 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, action: String? 
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f))
+        Text(title, fontSize = size, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f))
         when {
-            action != null -> Text(action, fontSize = 16.sp, color = G.colors.accent, fontWeight = FontWeight.Medium)
-            onClick != null -> Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = G.colors.text)
+            action != null -> Text(action, fontSize = 14.5.sp, color = G.colors.accent, fontWeight = FontWeight.Medium)
+            onClick != null -> Icon(Sym.ChevronRight, null, Modifier.size(24.dp), tint = G.colors.text)
         }
     }
 }
@@ -226,9 +236,9 @@ fun TipCard(title: String, body: String, button: String, onButton: () -> Unit, o
             ) { Icon(Icons.Rounded.Close, "Dismiss", Modifier.size(18.dp), tint = Color(0xFF333333)) }
         }
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp)) {
-            Text(title, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
             Spacer(Modifier.height(6.dp))
-            Text(body, fontSize = 15.sp, color = G.colors.text.copy(alpha = 0.85f), lineHeight = 21.sp)
+            Text(body, fontSize = 13.sp, color = G.colors.text.copy(alpha = 0.85f), lineHeight = 18.sp)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextPill(button, dark = true, onClick = onButton) }
         }
@@ -240,7 +250,7 @@ fun TipCard(title: String, body: String, button: String, onButton: () -> Unit, o
 fun RoundedSection(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
         modifier
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 10.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(G.cardRadius))
             .background(G.colors.surface)
@@ -251,18 +261,18 @@ fun RoundedSection(modifier: Modifier = Modifier, content: @Composable () -> Uni
 @Composable
 fun SectionLabel(text: String) {
     Text(
-        text, fontSize = 14.sp, color = G.colors.textSecondary, fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 30.dp, top = 18.dp, bottom = 8.dp),
+        text, fontSize = 13.sp, color = G.colors.textSecondary, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 28.dp, top = 16.dp, bottom = 8.dp),
     )
 }
 
 @Composable
 fun EmptyState(title: String, body: String? = null, modifier: Modifier = Modifier) {
     Column(modifier.padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, fontSize = 20.sp, color = G.colors.text, textAlign = TextAlign.Center)
+        Text(title, fontSize = 17.sp, color = G.colors.text, textAlign = TextAlign.Center)
         if (body != null) {
             Spacer(Modifier.height(8.dp))
-            Text(body, fontSize = 15.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            Text(body, fontSize = 13.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -272,3 +282,48 @@ fun Gap(h: Int = 8) = Spacer(Modifier.height(h.dp))
 
 @Composable
 fun HGap(w: Int = 8) = Spacer(Modifier.width(w.dp))
+
+/**
+ * One UI's sub-screen app bar: a thin back arrow in a 60 dp slot, then the title in bold on the
+ * same line (64 dp tall).
+ */
+@Composable
+fun OneUiTopBar(title: String, modifier: Modifier = Modifier, onBack: () -> Unit) {
+    Row(modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.width(60.dp).height(64.dp).clickable(remember { MutableInteractionSource() }, null, onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Sym.Back, "Back", Modifier.size(24.dp), tint = G.colors.text) }
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = G.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** One UI's compact switch (32 x 20 dp): filled accent track when on, outlined grey when off. */
+@Composable
+fun OneUiSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val pos by androidx.compose.animation.core.animateFloatAsState(if (checked) 1f else 0f, label = "switch")
+    val accent = G.colors.accent
+    val off = Color(0xFF8E8E93)
+    val alpha = if (enabled) 1f else 0.4f
+    androidx.compose.foundation.Canvas(
+        modifier
+            .size(width = 32.dp, height = 20.dp)
+            .let {
+                if (onCheckedChange != null) it.toggleable(checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onCheckedChange)
+                else it.semantics { role = androidx.compose.ui.semantics.Role.Switch; toggleableState = androidx.compose.ui.state.ToggleableState(checked) }
+            },
+    ) {
+        val h = size.height
+        val stroke = 1.5.dp.toPx()
+        val corner = androidx.compose.ui.geometry.CornerRadius(h / 2)
+        if (pos > 0f) drawRoundRect(accent.copy(alpha = pos * alpha), cornerRadius = corner)
+        if (pos < 1f) drawRoundRect(
+            off.copy(alpha = (1 - pos) * alpha), topLeft = androidx.compose.ui.geometry.Offset(stroke / 2, stroke / 2),
+            size = androidx.compose.ui.geometry.Size(size.width - stroke, h - stroke), cornerRadius = corner,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+        val r = h / 2 - 3.dp.toPx()
+        val cx = h / 2 + (size.width - h) * pos
+        drawCircle(androidx.compose.ui.graphics.lerp(off, Color.White, pos).copy(alpha = alpha), r, androidx.compose.ui.geometry.Offset(cx, h / 2))
+    }
+}

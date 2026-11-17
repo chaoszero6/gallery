@@ -11,6 +11,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.DeviceFontFamilyName
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,9 +71,18 @@ val LocalGalleryColors = staticCompositionLocalOf { Light }
 object G {
     val colors: GalleryColors @Composable get() = LocalGalleryColors.current
     val cardRadius = 26.dp
-    val pillHeight = 64.dp
+    val pillHeight = 56.dp
     val sideMargin = 10.dp
 }
+
+/**
+ * The phone's own UI font. On Samsung phones the system family "sec" is One UI Sans (what Samsung
+ * Gallery uses); Compose otherwise draws Roboto. Elsewhere the name falls back to the default font.
+ * Nothing is bundled: the font is read from the phone. Declared per weight, so Bold and SemiBold
+ * use the font's own weights.
+ */
+@OptIn(ExperimentalTextApi::class)
+val AppFont: FontFamily = FontFamily((100..900 step 100).map { Font(DeviceFontFamilyName("sec"), FontWeight(it)) })
 
 @Composable
 fun GalleryTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
@@ -81,15 +94,29 @@ fun GalleryTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () 
         primary = c.accent, background = c.background, surface = c.surface, onSurface = c.text, onBackground = c.text,
         surfaceContainer = c.surface, surfaceContainerHigh = c.surface, surfaceContainerHighest = c.card, secondaryContainer = c.pillSelected,
     )
-    val type = Typography(
-        headlineMedium = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.sp),
-        titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
-        titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-        bodyLarge = TextStyle(fontSize = 16.sp),
-        bodyMedium = TextStyle(fontSize = 14.sp),
-        labelMedium = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-        labelSmall = TextStyle(fontSize = 11.sp),
-    )
+    val type = Typography().let { d ->
+        // Every Material style (dialogs, menus, fields) in the system's font, not Compose's Roboto.
+        Typography(
+            displayLarge = d.displayLarge.copy(fontFamily = AppFont), displayMedium = d.displayMedium.copy(fontFamily = AppFont),
+            displaySmall = d.displaySmall.copy(fontFamily = AppFont), headlineLarge = d.headlineLarge.copy(fontFamily = AppFont),
+            headlineSmall = d.headlineSmall.copy(fontFamily = AppFont), titleSmall = d.titleSmall.copy(fontFamily = AppFont),
+            bodySmall = d.bodySmall.copy(fontFamily = AppFont), labelLarge = d.labelLarge.copy(fontFamily = AppFont),
+            headlineMedium = TextStyle(fontSize = 25.5.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.sp),
+        titleLarge = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
+        titleMedium = TextStyle(fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold),
+        bodyLarge = TextStyle(fontSize = 13.5.sp),
+        bodyMedium = TextStyle(fontSize = 12.sp),
+        labelMedium = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontSize = 9.5.sp),
+        ).let { t ->
+            t.copy(
+                headlineMedium = t.headlineMedium.copy(fontFamily = AppFont), titleLarge = t.titleLarge.copy(fontFamily = AppFont),
+                titleMedium = t.titleMedium.copy(fontFamily = AppFont), bodyLarge = t.bodyLarge.copy(fontFamily = AppFont),
+                bodyMedium = t.bodyMedium.copy(fontFamily = AppFont), labelMedium = t.labelMedium.copy(fontFamily = AppFont),
+                labelSmall = t.labelSmall.copy(fontFamily = AppFont),
+            )
+        }
+    }
     CompositionLocalProvider(LocalGalleryColors provides c) {
         MaterialTheme(colorScheme = scheme, typography = type, content = content)
     }

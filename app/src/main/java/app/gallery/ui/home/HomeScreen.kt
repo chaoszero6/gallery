@@ -70,6 +70,7 @@ import app.gallery.ui.components.TextPill
 import app.gallery.ui.openGrid
 import app.gallery.ui.pictures.PicturesTab
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 
 /** Main screen: Pictures · Albums · Collections tabs and the Menu sheet. */
 @Composable
@@ -93,10 +94,10 @@ fun HomeScreen(nav: NavController) {
         if (!hideBar) {
             FloatingPillBar(
                 tabs = listOf(
-                    PillTab("Pictures", Icons.Outlined.Image),
-                    PillTab("Albums", Icons.Outlined.PhotoAlbum),
-                    PillTab("Collections", Icons.Outlined.Collections),
-                    PillTab("Menu", Icons.Rounded.Menu, badge = pendingOps > 0),
+                    PillTab("Pictures", Sym.Pictures, Sym.PicturesFilled),
+                    PillTab("Albums", Sym.Albums, Sym.AlbumsFilled),
+                    PillTab("Collections", Sym.Collections, Sym.CollectionsFilled),
+                    PillTab("Menu", Sym.Menu, badge = pendingOps > 0),
                 ),
                 selected = if (menu) 3 else tab,
                 onSelect = { if (it == 3) menu = true else tab = it },
@@ -113,14 +114,14 @@ private data class MenuEntry(val label: String, val icon: ImageVector, val onCli
 @Composable
 private fun MenuSheet(nav: NavController, onDismiss: () -> Unit) {
     val entries = listOf(
-        MenuEntry("Videos", Icons.Rounded.PlayCircleOutline) { nav.openGrid(GridArgs("Videos", MediaSource.Videos)) },
-        MenuEntry("Favourites", Icons.Rounded.FavoriteBorder) { nav.openGrid(GridArgs("Favourites", MediaSource.Favorites)) },
-        MenuEntry("Recent", Icons.Rounded.Schedule) { nav.openGrid(GridArgs("Recent", MediaSource.Recent)) },
-        MenuEntry("Map", Icons.Rounded.Map) { nav.navigate(Routes.MAP) },
-        MenuEntry("Archive", Icons.Rounded.Archive) { nav.openGrid(GridArgs("Archive", MediaSource.Archive)) },
-        MenuEntry("Recycle bin", Icons.Rounded.DeleteOutline) { nav.navigate(Routes.TRASH) },
-        MenuEntry("Nextcloud", Icons.Rounded.Cloud) { nav.navigate(Routes.NEXTCLOUD) },
-        MenuEntry("Settings", Icons.Rounded.Settings) { nav.navigate(Routes.SETTINGS) },
+        MenuEntry("Videos", Sym.Videos) { nav.openGrid(GridArgs("Videos", MediaSource.Videos)) },
+        MenuEntry("Favourites", Sym.Favorite) { nav.openGrid(GridArgs("Favourites", MediaSource.Favorites)) },
+        MenuEntry("Recent", Sym.Recent) { nav.openGrid(GridArgs("Recent", MediaSource.Recent)) },
+        MenuEntry("Map", Sym.Map) { nav.navigate(Routes.MAP) },
+        MenuEntry("Archive", Sym.Archive) { nav.openGrid(GridArgs("Archive", MediaSource.Archive)) },
+        MenuEntry("Recycle bin", Sym.Trash) { nav.navigate(Routes.TRASH) },
+        MenuEntry("Nextcloud", Sym.Cloud) { nav.navigate(Routes.NEXTCLOUD) },
+        MenuEntry("Settings", Sym.Settings) { nav.navigate(Routes.SETTINGS) },
     )
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Box(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null, onClick = onDismiss)) {
@@ -137,11 +138,11 @@ private fun MenuSheet(nav: NavController, onDismiss: () -> Unit) {
                                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { onDismiss(); e.onClick() }.padding(vertical = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                Box(Modifier.size(58.dp).clip(CircleShape).background(G.colors.background), contentAlignment = Alignment.Center) {
-                                    Icon(e.icon, null, Modifier.size(26.dp), tint = G.colors.text)
+                                Box(Modifier.size(46.dp).clip(CircleShape).background(G.colors.background), contentAlignment = Alignment.Center) {
+                                    Icon(e.icon, null, Modifier.size(24.dp), tint = G.colors.text)
                                 }
                                 Spacer(Modifier.height(8.dp))
-                                Text(e.label, fontSize = 14.sp, color = G.colors.text, textAlign = TextAlign.Center, maxLines = 2)
+                                Text(e.label, fontSize = 12.sp, color = G.colors.text, textAlign = TextAlign.Center, maxLines = 2)
                             }
                         }
                     }
@@ -161,15 +162,15 @@ fun PermissionScreen(onAllow: () -> Unit, onSkip: () -> Unit) {
             Icon(Icons.Outlined.Image, null, Modifier.size(52.dp), tint = Color.White)
         }
         Spacer(Modifier.height(28.dp))
-        Text("Gallery", fontSize = 30.sp, color = G.colors.text)
+        Text("Gallery", fontSize = 25.5.sp, color = G.colors.text)
         Spacer(Modifier.height(12.dp))
         Text(
             "Allow access to your photos and videos to see them here. Your Nextcloud library can be added later.",
-            fontSize = 16.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center,
+            fontSize = 13.5.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(36.dp))
         TextPill("Allow access", dark = true, onClick = onAllow)
         Spacer(Modifier.height(10.dp))
-        Text("Not now", color = G.colors.accent, fontSize = 16.sp, modifier = Modifier.clickable(onClick = onSkip).padding(12.dp))
+        Text("Not now", color = G.colors.accent, fontSize = 13.5.sp, modifier = Modifier.clickable(onClick = onSkip).padding(12.dp))
     }
 }

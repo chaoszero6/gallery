@@ -131,7 +131,7 @@ fun MapScreen(nav: NavController) {
                     Box(Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(G.colors.textSecondary.copy(alpha = 0.4f)))
                     Text(
                         items?.let { "${it.size} items" } ?: "${selected?.first?.count ?: 0} items",
-                        fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                     )
                 }
                 val list = items
@@ -165,9 +165,9 @@ fun LocationPickerDialog(onDismiss: () -> Unit, onPick: (Double, Double) -> Unit
                 api = c.api, config = config, modifier = Modifier.fillMaxSize(),
                 initial = start, initialZoom = if (start != null) 12.0 else 1.5, onReady = { map = it },
             )
-            Text("📍", fontSize = 40.sp, modifier = Modifier.align(Alignment.Center).padding(bottom = 44.dp))
+            Text("📍", fontSize = 34.sp, modifier = Modifier.align(Alignment.Center).padding(bottom = 44.dp))
             Text(
-                "Move the map to place the pin", color = G.colors.text, fontSize = 15.sp,
+                "Move the map to place the pin", color = G.colors.text, fontSize = 13.sp,
                 modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 18.dp)
                     .clip(RoundedCornerShape(20.dp)).background(G.colors.pill).padding(horizontal = 16.dp, vertical = 8.dp),
             )

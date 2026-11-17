@@ -64,7 +64,7 @@ fun ClustersScreen(nav: NavController, backend: String) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(span = { GridItemSpan(3) }) { Text(title, fontSize = 30.sp, color = G.colors.text, modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)) }
+            item(span = { GridItemSpan(3) }) { Text(title, fontSize = 25.5.sp, color = G.colors.text, modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)) }
             items(list, key = { it.backend + it.clusterId }) { cl ->
                 Column(Modifier.clickable {
                     nav.openGrid(
@@ -77,10 +77,10 @@ fun ClustersScreen(nav: NavController, backend: String) {
                 }) {
                     CoverImage(c.nextcloud.clusterPreviewUrl(cl), Modifier.fillMaxWidth().aspectRatio(1f), radius = if (backend == "people") 100.dp else 18.dp)
                     Text(
-                        (if (backend == "tags") "#" else "") + cl.name.ifBlank { "Add name" }, fontSize = 14.sp, color = G.colors.text,
+                        (if (backend == "tags") "#" else "") + cl.name.ifBlank { "Add name" }, fontSize = 12.sp, color = G.colors.text,
                         maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     )
-                    Text("${cl.count}", fontSize = 12.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    Text("${cl.count}", fontSize = 10.sp, color = G.colors.textSecondary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

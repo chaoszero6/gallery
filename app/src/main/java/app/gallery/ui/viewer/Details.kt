@@ -131,27 +131,27 @@ fun DetailsPanel(item: MediaItem, actions: MediaActions, modifier: Modifier = Mo
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 dt.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy · h:mm a", locale)),
-                fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f),
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f),
             )
-            Text("Edit", color = G.colors.accent, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { actions.editDate(listOf(item)) }.padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
+            Text("Edit", color = G.colors.accent, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { actions.editDate(listOf(item)) }.padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
         }
         Spacer(Modifier.height(6.dp))
-        Text(item.name, fontSize = 15.sp, color = G.colors.textSecondary)
+        Text(item.name, fontSize = 12.sp, color = G.colors.textSecondary)
         val path = item.relativePath?.let { "/Internal storage/$it" } ?: d.remote?.path?.substringBeforeLast('/')?.let { "Nextcloud: $it" }
-        if (path != null) Text(path, fontSize = 15.sp, color = G.colors.textSecondary)
+        if (path != null) Text(path, fontSize = 12.sp, color = G.colors.textSecondary)
 
         Spacer(Modifier.height(18.dp))
-        Text(if (item.isVideo) "Video info" else "Image info", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+        Text(if (item.isVideo) "Video info" else "Image info", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
         Spacer(Modifier.height(4.dp))
         val mp = if (item.width > 0 && item.height > 0) "${(item.width.toLong() * item.height / 1_000_000).coerceAtLeast(1)}MP" else null
         Text(
             listOfNotNull(fmtSize(item.size), if (item.width > 0) "${item.width}x${item.height}" else null, if (item.isVideo) null else mp).joinToString("  |  "),
-            fontSize = 15.sp, color = G.colors.textSecondary,
+            fontSize = 12.sp, color = G.colors.textSecondary,
         )
         d.camera?.let {
             Spacer(Modifier.height(14.dp))
-            Text(it, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
-            d.exposure?.let { e -> Text(e, fontSize = 15.sp, color = G.colors.textSecondary) }
+            Text(it, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            d.exposure?.let { e -> Text(e, fontSize = 12.sp, color = G.colors.textSecondary) }
         }
 
         // Backup state (the new Nextcloud part).
@@ -164,21 +164,21 @@ fun DetailsPanel(item: MediaItem, actions: MediaActions, modifier: Modifier = Mo
             }
             Icon(icon, null, Modifier.size(18.dp), tint = G.colors.textSecondary)
             Spacer(Modifier.width(8.dp))
-            Text(text, fontSize = 15.sp, color = G.colors.textSecondary)
+            Text(text, fontSize = 12.sp, color = G.colors.textSecondary)
             if (item.isLocalOnly && account != null) {
                 Spacer(Modifier.width(12.dp))
-                Text("Back up", color = G.colors.accent, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { actions.backUp(listOf(item)) })
+                Text("Back up", color = G.colors.accent, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { actions.backUp(listOf(item)) })
             }
         }
 
         // Location
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Location", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f))
-            Text(if (d.lat != null) "Edit" else "Add", color = G.colors.accent, fontSize = 16.sp, modifier = Modifier.clickable { actions.editLocation(listOf(item)) })
+            Text("Location", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text, modifier = Modifier.weight(1f))
+            Text(if (d.lat != null) "Edit" else "Add", color = G.colors.accent, fontSize = 13.sp, modifier = Modifier.clickable { actions.editLocation(listOf(item)) })
         }
         if (d.lat != null && d.lon != null) {
-            Text(d.address ?: "%.5f, %.5f".format(d.lat, d.lon), fontSize = 15.sp, color = G.colors.textSecondary)
+            Text(d.address ?: "%.5f, %.5f".format(d.lat, d.lon), fontSize = 12.sp, color = G.colors.textSecondary)
             Spacer(Modifier.height(10.dp))
             MiniMap(d.lat, d.lon, cfg, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(18.dp)))
         }
@@ -186,14 +186,14 @@ fun DetailsPanel(item: MediaItem, actions: MediaActions, modifier: Modifier = Mo
         val people = d.remote?.people.orEmpty()
         if (people.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
-            Text("People", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text("People", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { people.forEach { Chip(it) } }
         }
         val albums = d.remote?.albums.orEmpty()
         if (albums.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
-            Text("Albums", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+            Text("Albums", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
             Spacer(Modifier.height(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { albums.forEach { Chip(it) } }
         }
@@ -209,7 +209,7 @@ fun DetailsPanel(item: MediaItem, actions: MediaActions, modifier: Modifier = Mo
 @Composable
 private fun Chip(text: String, onClick: (() -> Unit)? = null) {
     Text(
-        text, fontSize = 15.sp, color = G.colors.text,
+        text, fontSize = 12.sp, color = G.colors.text,
         modifier = Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, G.colors.divider, RoundedCornerShape(20.dp))
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }.padding(horizontal = 14.dp, vertical = 7.dp),
     )

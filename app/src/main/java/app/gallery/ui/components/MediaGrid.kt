@@ -346,7 +346,7 @@ fun MediaGrid(
             Box(
                 Modifier.shadow(6.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(G.colors.pill)
                     .padding(horizontal = 18.dp, vertical = 9.dp),
-            ) { Text(bubble ?: "", fontSize = 16.sp, color = G.colors.text) }
+            ) { Text(bubble ?: "", fontSize = 13.5.sp, color = G.colors.text) }
         }
 
         // Scroll thumb on the right edge, draggable for fast scrolling.
@@ -396,10 +396,10 @@ private fun DateHeader(h: GridEntry.Header, selection: SelectionState, compact: 
             SelectMark(allSelected, dark = true)
             HGap(12)
         }
-        Text(h.label, fontSize = if (compact) 16.sp else 17.sp, fontWeight = FontWeight.Bold, color = G.colors.text)
+        Text(h.label, fontSize = if (compact) 13.sp else 14.sp, fontWeight = FontWeight.Bold, color = G.colors.text)
         if (h.sub != null) {
             HGap(10)
-            Text(h.sub, fontSize = 16.sp, color = G.colors.textSecondary, maxLines = 1)
+            Text(h.sub, fontSize = 13.5.sp, color = G.colors.textSecondary, maxLines = 1)
         }
     }
 }

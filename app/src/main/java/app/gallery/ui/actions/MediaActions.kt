@@ -436,7 +436,7 @@ private fun DeleteDialog(items: List<MediaItem>, onCancel: () -> Unit, onConfirm
                     !anyLocal -> "Delete $noun from Nextcloud?"
                     else -> "Delete $noun?"
                 },
-                fontSize = 19.sp,
+                fontSize = 16.sp,
             )
         },
         text = {
@@ -568,7 +568,7 @@ private fun MoreSheet(a: MediaActions, items: List<MediaItem>) {
             @Composable
             fun row(label: String, enabled: Boolean = true, onClick: () -> Unit) {
                 Text(
-                    label, fontSize = 17.sp, color = if (enabled) G.colors.text else G.colors.textSecondary,
+                    label, fontSize = 14.5.sp, color = if (enabled) G.colors.text else G.colors.textSecondary,
                     modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { onClick() }.padding(horizontal = 28.dp, vertical = 15.dp),
                 )
             }

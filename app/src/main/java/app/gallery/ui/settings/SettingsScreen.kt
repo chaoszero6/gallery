@@ -46,7 +46,9 @@ import app.gallery.ui.components.BackgroundAccess
 import app.gallery.ui.components.BackgroundAccessDialog
 import app.gallery.ui.components.rememberBackgroundAllowed
 import app.gallery.ui.Routes
-import app.gallery.ui.components.CircleBackButton
+import app.gallery.ui.components.OneUiSwitch
+import app.gallery.ui.components.OneUiTopBar
+import androidx.compose.foundation.layout.heightIn
 import app.gallery.ui.components.RoundedSection
 import app.gallery.ui.components.SectionLabel
 import app.gallery.ui.theme.G
@@ -55,28 +57,25 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingRow(title: String, subtitle: String? = null, badge: String? = null, checked: Boolean? = null, enabled: Boolean = true, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick).padding(horizontal = 22.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontSize = 17.sp, color = if (enabled) G.colors.text else G.colors.textSecondary)
+                Text(title, fontSize = 17.5.sp, color = if (enabled) G.colors.text else G.colors.textSecondary)
                 if (badge != null) Text(
-                    badge, fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold,
+                    badge, fontSize = 9.5.sp, color = Color.White, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 8.dp).background(Color(0xFFFF6A3D), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
                 )
             }
             if (subtitle != null) Text(subtitle, fontSize = 14.sp, color = if (checked == true) G.colors.accent else G.colors.textSecondary)
         }
-        if (checked != null) Switch(
-            checked, { onClick() }, enabled = enabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = G.colors.accent),
-        )
+        if (checked != null) OneUiSwitch(checked, { onClick() }, Modifier.padding(start = 16.dp, end = 4.dp), enabled = enabled)
     }
 }
 
 @Composable
-fun RowDivider() = HorizontalDivider(Modifier.padding(horizontal = 22.dp), color = G.colors.divider)
+fun RowDivider() = HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = G.colors.divider)
 
 @Composable
 fun SettingsScreen(nav: NavController) {
@@ -94,8 +93,9 @@ fun SettingsScreen(nav: NavController) {
     if (askBackground) BackgroundAccessDialog(onDismiss = { askBackground = false }, onContinue = { askBackground = false; startIndexing() })
 
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(top = 70.dp, bottom = 40.dp)) {
-            Text("Gallery settings", fontSize = 30.sp, color = G.colors.text, modifier = Modifier.padding(start = 26.dp, bottom = 16.dp))
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        OneUiTopBar("Gallery settings") { nav.popBackStack() }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 40.dp)) {
             RoundedSection {
                 SettingRow(
                     "Nextcloud backup & sync",
@@ -167,7 +167,7 @@ fun SettingsScreen(nav: NavController) {
             }
             Spacer(Modifier.height(20.dp))
         }
-        CircleBackButton(Modifier.statusBarsPadding().padding(12.dp)) { nav.popBackStack() }
+        }
     }
 }
 

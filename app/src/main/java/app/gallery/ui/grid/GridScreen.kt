@@ -57,6 +57,7 @@ import app.gallery.ui.components.TopFade
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.openViewer
 import app.gallery.ui.theme.G
+import app.gallery.ui.theme.Sym
 import kotlinx.coroutines.launch
 
 private fun MediaSource.followsTimeline() = when (this) {
@@ -105,10 +106,10 @@ fun GridScreen(nav: NavController, id: String?) {
                 header = {
                     item(key = "title", span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(start = 20.dp, top = 20.dp, bottom = 6.dp)) {
-                            Text(title, fontSize = 30.sp, color = G.colors.text, maxLines = 2)
+                            Text(title, fontSize = 25.5.sp, color = G.colors.text, maxLines = 2)
                             Text(
                                 listOfNotNull("${list.size} items", args.subtitle).joinToString(" · "),
-                                fontSize = 15.sp, color = G.colors.textSecondary,
+                                fontSize = 13.sp, color = G.colors.textSecondary,
                             )
                         }
                     }
@@ -124,7 +125,7 @@ fun GridScreen(nav: NavController, id: String?) {
             CircleBackButton(Modifier.statusBarsPadding().padding(12.dp)) { nav.popBackStack() }
             TopIconPill(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 12.dp)) {
                 Box {
-                    PillIcon(Icons.Rounded.MoreVert, "More options") { menu = true }
+                    PillIcon(Sym.MoreVert, "More options") { menu = true }
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem({ Text("Select") }, { menu = false; selection.start() })
                         if (args.source == MediaSource.Archive && list != null) {

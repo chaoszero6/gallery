@@ -87,11 +87,11 @@ fun TrashScreen(nav: NavController) {
         ) {
             item(span = { GridItemSpan(4) }) {
                 Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)) {
-                    Text("Recycle bin", fontSize = 30.sp, color = G.colors.text)
-                    Text("Items are deleted forever after 30 days.", fontSize = 15.sp, color = G.colors.textSecondary)
+                    Text("Recycle bin", fontSize = 25.5.sp, color = G.colors.text)
+                    Text("Items are deleted forever after 30 days.", fontSize = 13.sp, color = G.colors.textSecondary)
                     if (account != null) Text(
                         "Items deleted from Nextcloud are in its trash bin. Open in browser",
-                        fontSize = 15.sp, color = G.colors.accent,
+                        fontSize = 13.sp, color = G.colors.accent,
                         modifier = Modifier.padding(top = 6.dp).clickable {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(account!!.server + "/apps/files/trashbin")))
                         },
@@ -108,7 +108,7 @@ fun TrashScreen(nav: NavController) {
                 ) {
                     CoverImage(LocalThumb(t.uri, 256), Modifier.fillMaxSize(), radius = 0.dp)
                     val days = ((t.expiresSec - now) / 86400).coerceAtLeast(0)
-                    Text("$days days", fontSize = 11.sp, color = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(5.dp))
+                    Text("$days days", fontSize = 9.5.sp, color = Color.White, modifier = Modifier.align(Alignment.BottomStart).padding(5.dp))
                     if (selected.isNotEmpty()) SelectMark(sel, Modifier.align(Alignment.TopStart).padding(6.dp))
                 }
             }
