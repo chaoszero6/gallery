@@ -91,10 +91,30 @@ class DateQueryTest {
 }
 
 class GridEntriesTest {
-    private fun item(key: String, day: String) = MediaItem(
-        key, null, null, null, null, null, key, "image/jpeg", 1, 0, LocalDate.parse(day).toEpochDay().toInt(),
+    private fun item(key: String, day: String, takenAtMs: Long = 0) = MediaItem(
+        key, null, null, null, null, null, key, "image/jpeg", 1, takenAtMs, LocalDate.parse(day).toEpochDay().toInt(),
         1, 1, false, 0, false, null, null, null, null,
     )
+
+    @Test fun `timeline order keeps each day together even when capture times interleave`() {
+        // A Memories photo's day comes from the camera's local time, its timestamp is UTC:
+        // "b" is on 7 Aug by its day but sorts between two 8 Aug photos by time.
+        val items = listOf(
+            item("a", "2026-08-08", 3_000), item("b", "2026-08-07", 2_500),
+            item("c", "2026-08-08", 2_000), item("d", "2026-08-07", 1_000),
+        ).sortedWith(MediaItem.TimelineOrder)
+        assertThat(items.map { it.key }).containsExactly("a", "c", "b", "d").inOrder()
+        val headers = buildEntries(items, Grouping.DAY).filterIsInstance<GridEntry.Header>()
+        assertThat(headers.map { it.itemKeys }).containsExactly(listOf("a", "c"), listOf("b", "d")).inOrder()
+    }
+
+    @Test fun `a list that returns to an earlier day still gets unique keys`() {
+        // Recent is sorted by date modified, so days can repeat; duplicate keys crashed the grid.
+        val items = listOf(item("a", "2026-08-08"), item("b", "2026-08-07"), item("c", "2026-08-08"), item("d", "2026-08-07"))
+        val keys = buildEntries(items, Grouping.DAY).map { it.key }
+        assertThat(keys).containsNoDuplicates()
+        assertThat(keys.filter { it.startsWith("h-") }).containsExactly("h-DAY-20673", "h-DAY-20672", "h-DAY-20673-2", "h-DAY-20672-2").inOrder()
+    }
 
     @Test fun `headers group items by day and month`() {
         val items = listOf(item("a", "2026-11-15"), item("b", "2026-11-15"), item("c", "2026-11-02"), item("d", "2026-10-30"))

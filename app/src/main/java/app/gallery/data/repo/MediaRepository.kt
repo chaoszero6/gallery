@@ -183,7 +183,7 @@ class MediaRepository(
         for (chunk in days.map { it.dayid }.chunked(30)) {
             api.day(chunk, filters).mapTo(out) { toItem(it) }
         }
-        return out.sortedByDescending { it.takenAtMs }
+        return out.sortedWith(MediaItem.TimelineOrder)
     }
 
     suspend fun onThisDay(range: Int): List<MediaItem> {
@@ -193,7 +193,7 @@ class MediaRepository(
         val local = snap.items.filter { it.isLocal && it.dayId in idSet }
         val remote = if (accounts.account.value != null) runCatching { api.daysByIds(ids).map { toItem(it) } }.getOrDefault(emptyList()) else emptyList()
         val seen = HashSet<String>()
-        return (local + remote).filter { seen.add(it.key) }.sortedByDescending { it.takenAtMs }
+        return (local + remote).filter { seen.add(it.key) }.sortedWith(MediaItem.TimelineOrder)
     }
 
     fun toItem(p: PhotoDto): MediaItem {
@@ -210,7 +210,7 @@ class MediaRepository(
         val out = ArrayList<MediaItem>(locals.size + remotes.size)
         for (l in locals) out += localItem(l, linked[l.id], favs)
         for (r in remotes) if (r.linkedLocalId == null || r.linkedLocalId !in localBucket) out += remoteItem(r, null, false)
-        out.sortWith(compareByDescending<MediaItem> { it.takenAtMs }.thenByDescending { it.key })
+        out.sortWith(MediaItem.TimelineOrder)
         val byKey = HashMap<String, MediaItem>(out.size * 2)
         val byRemote = HashMap<Long, MediaItem>(remotes.size * 2)
         for (m in out) {

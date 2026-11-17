@@ -38,6 +38,17 @@ data class MediaItem(
     val isLocalOnly: Boolean get() = localId != null && remoteFileId == null
     val isGif: Boolean get() = mime == "image/gif"
     val aspect: Float get() = if (width > 0 && height > 0) width.toFloat() / height else 1f
+
+    companion object {
+        /**
+         * Newest first, grouped by calendar day. Sorting by [takenAtMs] alone is not enough: [dayId]
+         * comes from the camera's local time, so around midnight (or for photos taken in another
+         * time zone) a day's items could be split by an item from a neighbouring day, which gave
+         * the grid two headers for the same day (and a duplicate-key crash).
+         */
+        val TimelineOrder: Comparator<MediaItem> =
+            compareByDescending<MediaItem> { it.dayId }.thenByDescending { it.takenAtMs }.thenByDescending { it.key }
+    }
 }
 
 /** Where a grid's content comes from. Every grid screen in the app is one of these. */

@@ -124,8 +124,14 @@ fun dayLabel(dayId: Int, today: LocalDate = LocalDate.now()): String {
     }
 }
 
+/**
+ * Splits [items] into header + cell entries, starting a new header whenever the group changes.
+ * Lists not sorted by day (Recent is sorted by date modified) can come back to a group that
+ * already had a header; that header gets a numbered key, because lazy-grid keys must be unique.
+ */
 fun buildEntries(items: List<MediaItem>, grouping: Grouping): List<GridEntry> {
     val out = ArrayList<GridEntry>(items.size + items.size / 4)
+    val seen = HashMap<Int, Int>()
     var curGroup = Int.MIN_VALUE
     var headerIndex = -1
     var keys = ArrayList<String>()
@@ -146,7 +152,8 @@ fun buildEntries(items: List<MediaItem>, grouping: Grouping): List<GridEntry> {
                 Grouping.YEAR -> g.toString()
             }
             headerIndex = out.size
-            out += GridEntry.Header("h-$grouping-$g", label, null, emptyList())
+            val n = seen.merge(g, 1, Int::plus)!!
+            out += GridEntry.Header(if (n == 1) "h-$grouping-$g" else "h-$grouping-$g-$n", label, null, emptyList())
         }
         keys += m.key
         out += GridEntry.Cell(m, i)
