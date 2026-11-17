@@ -8,6 +8,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import java.io.File
 import java.nio.FloatBuffer
@@ -17,8 +19,18 @@ import kotlin.math.sqrt
 /**
  * On-device CLIP (image and text encoders exported to ONNX by tools/export_clip.py).
  * Both encoders output L2-normalised 512-d vectors, so a dot product is the cosine similarity.
+ *
+ * On Snapdragon phones the image encoder (the part that runs once per photo while indexing) runs
+ * on the Hexagon NPU through ONNX Runtime's QNN backend, using a separately quantised copy of the
+ * model (tools/npu_quantize.py). Anything that stops that working falls back to the CPU model.
+ * The text encoder runs once per search and stays on the CPU.
  */
 class ClipModel(private val context: Context) {
+    enum class Accelerator(val label: String) { NPU("NPU"), CPU("CPU") }
+
+    /** Speed test result: milliseconds per photo, and how closely the NPU agrees with the CPU. */
+    data class Benchmark(val npuMs: Double?, val cpuMs: Double, val cosine: Float?, val npuError: String?)
+
     private val env: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
     private var image: OrtSession? = null
     private var text: OrtSession? = null
@@ -35,8 +47,24 @@ class ClipModel(private val context: Context) {
 
     val available: Boolean by lazy { IMAGE_FILE in assetNames && TEXT_FILE in assetNames && vocabAsset != null }
 
-    private fun session(name: String): OrtSession {
-        // ONNX Runtime needs a file path for large models: copy the asset once.
+    /** Where the image encoder runs; null until it is first loaded. */
+    @Volatile var imageAccelerator: Accelerator? = null
+        private set
+
+    /** Why the NPU is not used, when it was tried and failed. */
+    @Volatile var npuError: String? = null
+        private set
+
+    private val htpBackend: File get() = File(context.applicationInfo.nativeLibraryDir, "libQnnHtp.so")
+
+    /** Snapdragon phone, NPU model in this build, and QNN's libraries installed. */
+    val npuSupported: Boolean by lazy {
+        Build.VERSION.SDK_INT >= 31 && Build.SOC_MANUFACTURER.equals("QTI", ignoreCase = true) &&
+            NPU_IMAGE_FILE in assetNames && htpBackend.exists()
+    }
+
+    /** ONNX Runtime needs a file path for large models: copy the asset once. */
+    private fun assetFile(name: String): File {
         val f = File(context.filesDir, "clip/$name")
         if (!f.exists() || f.length() == 0L) {
             f.parentFile?.mkdirs()
@@ -44,23 +72,98 @@ class ClipModel(private val context: Context) {
             context.assets.open("clip/$name").use { i -> tmp.outputStream().use { i.copyTo(it, 1 shl 20) } }
             tmp.renameTo(f)
         }
+        return f
+    }
+
+    private fun session(name: String): OrtSession {
         val opts = OrtSession.SessionOptions().apply {
             setIntraOpNumThreads(4)
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
         }
-        return env.createSession(f.path, opts)
+        return env.createSession(assetFile(name).path, opts)
     }
 
-    @Synchronized
-    fun embedImage(bmp: Bitmap): FloatArray {
-        val s = image ?: session(IMAGE_FILE).also { image = it }
-        val input = preprocess(bmp)
+    /**
+     * Image encoder on the NPU. Compiling the graph for the NPU takes a while, so the compiled
+     * form (a QNN "context binary") is saved next to the model and loaded directly next time.
+     * CPU fallback inside the session is disabled: a half-NPU graph would be slower than the CPU model.
+     */
+    private fun npuSession(): OrtSession {
+        val dir = File(context.filesDir, "clip")
+        val ctxName = "npu_ctx_v${VERSION}_ort${env.version}.onnx"
+        val ctx = File(dir, ctxName)
+        dir.listFiles { f -> f.name.startsWith("npu_ctx_") && f.name != ctxName }?.forEach { it.delete() }
+        fun opts(save: Boolean) = OrtSession.SessionOptions().apply {
+            addConfigEntry("session.disable_cpu_ep_fallback", "1")
+            if (save) {
+                addConfigEntry("ep.context_enable", "1")
+                addConfigEntry("ep.context_file_path", ctx.path)
+            }
+            addQnn(
+                mapOf(
+                    "backend_path" to htpBackend.path,
+                    "htp_performance_mode" to "sustained_high_performance",
+                    "htp_graph_finalization_optimization_mode" to "3",
+                ),
+            )
+        }
+        if (ctx.exists()) {
+            try {
+                return env.createSession(ctx.path, opts(save = false))
+            } catch (e: Exception) {
+                Log.w(TAG, "saved NPU graph unusable, compiling again", e)
+                ctx.delete()
+            }
+        }
+        val t0 = SystemClock.elapsedRealtime()
+        return env.createSession(assetFile(NPU_IMAGE_FILE).path, opts(save = true)).also {
+            Log.i(TAG, "compiled image encoder for the NPU in ${SystemClock.elapsedRealtime() - t0} ms")
+        }
+    }
+
+    private fun imageSession(): OrtSession {
+        image?.let { return it }
+        var s: OrtSession? = null
+        if (npuSupported) {
+            s = try {
+                npuSession().also { imageAccelerator = Accelerator.NPU }
+            } catch (e: Throwable) {
+                Log.w(TAG, "NPU unavailable, using the CPU", e)
+                npuError = e.message ?: e.javaClass.simpleName
+                null
+            }
+        }
+        if (s == null) s = session(IMAGE_FILE).also { imageAccelerator = Accelerator.CPU }
+        image = s
+        return s
+    }
+
+    private fun run(s: OrtSession, input: FloatArray): FloatArray =
         OnnxTensor.createTensor(env, FloatBuffer.wrap(input), longArrayOf(1, 3, SIZE.toLong(), SIZE.toLong())).use { t ->
             s.run(mapOf(s.inputNames.first() to t)).use { out ->
                 @Suppress("UNCHECKED_CAST")
-                return normalize((out[0].value as Array<FloatArray>)[0])
+                normalize((out[0].value as Array<FloatArray>)[0])
             }
         }
+
+    @Synchronized
+    fun embedImage(bmp: Bitmap): FloatArray = run(imageSession(), preprocess(bmp))
+
+    /** Times the image encoder on the NPU (when there is one) and on the CPU, [runs] photos each. */
+    @Synchronized
+    fun benchmark(bmp: Bitmap, runs: Int = 20): Benchmark {
+        val input = preprocess(bmp)
+        fun time(s: OrtSession): Pair<Double, FloatArray> {
+            var v = run(s, input) // warm-up
+            val t0 = SystemClock.elapsedRealtimeNanos()
+            repeat(runs) { v = run(s, input) }
+            return (SystemClock.elapsedRealtimeNanos() - t0) / 1e6 / runs to v
+        }
+        val main = imageSession()
+        val npu = if (imageAccelerator == Accelerator.NPU) time(main) else null
+        val cpu = if (imageAccelerator == Accelerator.CPU) time(main) else session(IMAGE_FILE).use { time(it) }
+        val cos = npu?.second?.let { n -> cpu.second.indices.sumOf { (cpu.second[it] * n[it]).toDouble() }.toFloat() }
+        return Benchmark(npu?.first, cpu.first, cos, npuError).also { Log.i(TAG, "benchmark: $it") }
     }
 
     @Synchronized
@@ -80,11 +183,14 @@ class ClipModel(private val context: Context) {
 
     fun close() {
         runCatching { image?.close(); text?.close() }.onFailure { Log.w("ClipModel", "close", it) }
-        image = null; text = null
+        image = null; text = null; imageAccelerator = null
     }
 
     companion object {
+        private const val TAG = "ClipModel"
         const val IMAGE_FILE = "clip_image.onnx"
+        /** Image encoder quantised for the Qualcomm NPU (tools/npu_quantize.py). */
+        const val NPU_IMAGE_FILE = "clip_image_npu.onnx"
         const val TEXT_FILE = "clip_text.onnx"
         const val VOCAB_FILE = "bpe_simple_vocab_16e6.txt.gz"
         const val SIZE = 224

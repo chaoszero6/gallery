@@ -1,4 +1,5 @@
 import java.util.Properties
+import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
@@ -71,7 +72,40 @@ android {
 
     packaging {
         resources.excludes += listOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/versions/9/OSGI-INF/MANIFEST.MF")
+        jniLibs {
+            // The NPU (Qualcomm Hexagon) loads its half of QNN from a real directory, so native
+            // libraries are extracted at install instead of being read from inside the APK.
+            useLegacyPackaging = true
+            // Only the HTP NPU backend is used. Keep Snapdragon 8 Gen 2 (V73) and newer:
+            // 8 Gen 3 (V75), 8 Elite (V79, Galaxy S25), 8 Elite Gen 5 (V81).
+            excludes += listOf("**/libQnnGpu.so", "**/libQnnDsp*.so", "**/libQnnHtpV68*.so", "**/libQnnHtpV69*.so")
+        }
     }
+}
+
+// The Qualcomm build of ONNX Runtime only ships arm64 libraries. The emulator's x86_64 libraries
+// come from the regular build of the same version, which has the same Java API.
+val ortX86: Configuration by configurations.creating { isTransitive = false }
+
+abstract class ExtractOrtX86 : DefaultTask() {
+    @get:InputFiles abstract val aars: ConfigurableFileCollection
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+    @get:Inject abstract val fs: FileSystemOperations
+    @get:Inject abstract val archives: ArchiveOperations
+
+    @TaskAction fun extract() {
+        fs.sync {
+            aars.forEach { from(archives.zipTree(it)) { include("jni/x86_64/*.so") } }
+            eachFile { path = "x86_64/$name" }
+            includeEmptyDirs = false
+            into(outputDir)
+        }
+    }
+}
+
+val extractOrtX86 = tasks.register<ExtractOrtX86>("extractOrtX86") { aars.from(ortX86) }
+androidComponents {
+    onVariants { v -> v.sources.jniLibs?.addGeneratedSourceDirectory(extractOrtX86, ExtractOrtX86::outputDir) }
 }
 
 kotlin {
@@ -122,7 +156,8 @@ dependencies {
     implementation(libs.coroutines.android)
 
     implementation(libs.maplibre)
-    implementation(libs.onnxruntime)
+    implementation(libs.onnxruntime.qnn)
+    ortX86(libs.onnxruntime.cpu) { artifact { type = "aar" } }
     implementation(libs.mlkit.labeling)
     implementation(libs.mlkit.text)
 

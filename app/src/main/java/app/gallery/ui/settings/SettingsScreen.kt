@@ -25,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -119,6 +122,10 @@ fun SettingsScreen(nav: NavController) {
                 SettingRow("Include Nextcloud photos", "Downloads a small preview of each one to index it on this phone", checked = ui.searchIndexRemote) {
                     scope.launch { c.settings.setSearchIndexRemote(!ui.searchIndexRemote) }
                 }
+                if (c.searchIndexer.clip.available) {
+                    RowDivider()
+                    ModelSpeedRow(total)
+                }
             }
             SectionLabel("Permissions")
             RoundedSection {
@@ -142,5 +149,37 @@ fun SettingsScreen(nav: NavController) {
             Spacer(Modifier.height(20.dp))
         }
         CircleBackButton(Modifier.statusBarsPadding().padding(12.dp)) { nav.popBackStack() }
+    }
+}
+
+/** Shows where the search model runs (NPU or CPU) and measures it on one of the user's photos. */
+@Composable
+private fun ModelSpeedRow(items: List<app.gallery.data.model.MediaItem>) {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clip = c.searchIndexer.clip
+    var result by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val where = if (clip.npuSupported) "Runs on the phone's NPU" else "Runs on the processor (CPU)"
+    SettingRow("Search model speed", if (busy) "Measuring…" else result ?: "$where. Tap to measure") {
+        if (busy) return@SettingRow
+        val uri = items.firstOrNull { it.localUri != null && !it.isVideo }?.localUri
+        if (uri == null || Build.VERSION.SDK_INT < 29) { result = "No photo on this phone to measure with"; return@SettingRow }
+        busy = true
+        scope.launch {
+            result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching {
+                    val bmp = context.contentResolver.loadThumbnail(uri, android.util.Size(512, 512), null)
+                    val b = try { clip.benchmark(bmp) } finally { bmp.recycle() }
+                    if (b.npuMs != null) {
+                        String.format(java.util.Locale.ROOT, "NPU %.0f ms · CPU %.0f ms per photo (%.1f× faster, match %.3f)", b.npuMs, b.cpuMs, b.cpuMs / b.npuMs, b.cosine ?: 0f)
+                    } else {
+                        String.format(java.util.Locale.ROOT, "CPU %.0f ms per photo", b.cpuMs) + (b.npuError?.let { " · NPU unavailable: $it" } ?: "")
+                    }
+                }.getOrElse { "Could not measure: ${it.message}" }
+            }
+            busy = false
+        }
     }
 }

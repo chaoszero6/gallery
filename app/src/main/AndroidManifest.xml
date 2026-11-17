@@ -33,6 +33,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gallery">
 
+        <!-- Qualcomm's FastRPC library, used to run the search model on the Snapdragon NPU.
+             Optional: other phones run the model on the CPU. -->
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
