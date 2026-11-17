@@ -49,7 +49,7 @@ class AuthInterceptor(private val account: () -> Account?) : Interceptor {
 }
 
 fun baseHttpClient(account: () -> Account?): OkHttpClient = OkHttpClient.Builder()
-    .connectTimeout(20, TimeUnit.SECONDS)
+    .connectTimeout(10, TimeUnit.SECONDS) // a server that is down should not hold anything up for long
     .readTimeout(60, TimeUnit.SECONDS)
     .writeTimeout(120, TimeUnit.SECONDS)
     .addInterceptor(AuthInterceptor(account))

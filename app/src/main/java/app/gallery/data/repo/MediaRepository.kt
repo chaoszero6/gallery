@@ -16,7 +16,17 @@ import app.gallery.data.nextcloud.MemoriesApi
 import app.gallery.data.nextcloud.PhotoDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import androidx.room.withTransaction
+import app.gallery.data.nextcloud.HttpException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.withIndex
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,9 +50,23 @@ class MediaRepository(
     private val accounts: AccountStore,
     private val scope: CoroutineScope,
 ) {
-    data class Snapshot(val items: List<MediaItem>, val byKey: Map<String, MediaItem>, val byRemoteId: Map<Long, MediaItem>) {
-        companion object { val Empty = Snapshot(emptyList(), emptyMap(), emptyMap()) }
+    /**
+     * [remoteLoaded] is false while only the phone's items are in (the cached Nextcloud rows are
+     * still being read); "not backed up" badges wait for it, since every item looks phone-only then.
+     */
+    data class Snapshot(
+        val items: List<MediaItem>,
+        val byKey: Map<String, MediaItem>,
+        val byRemoteId: Map<Long, MediaItem>,
+        val remoteLoaded: Boolean = true,
+    ) {
+        companion object { val Empty = Snapshot(emptyList(), emptyMap(), emptyMap(), remoteLoaded = false) }
     }
+
+    private val _reachable = MutableStateFlow(true)
+    /** False after a refresh could not reach the server; actions then queue instead of waiting on it. */
+    val serverReachable: StateFlow<Boolean> = _reachable.asStateFlow()
+    @Volatile private var lastRemoteSuccessMs = 0L
 
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
@@ -54,15 +78,40 @@ class MediaRepository(
     private val localMutex = Mutex()
     private val remoteMutex = Mutex()
 
+    /**
+     * The cached Nextcloud rows; null until the first read finishes, so the phone's own items
+     * show straight away instead of waiting for a large Nextcloud library to load. While a refresh
+     * is writing, changes are batched (one re-merge per 1.5 s instead of one per day saved).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    private val remoteRows: Flow<List<RemoteMedia>?> = accounts.account.map { it != null }.distinctUntilChanged().flatMapLatest { signedIn ->
+        if (!signedIn) flowOf(emptyList())
+        else db.remote().observeAll().withIndex()
+            .debounce { if (it.index == 0 || !_syncing.value) 0L else 1_500L }
+            .map<_, List<RemoteMedia>?> { it.value }
+            .onStart { emit(null) }
+    }
+
     /** Everything, newest first. */
     val snapshot: StateFlow<Snapshot> = combine(
         db.local().observeAll(),
-        db.remote().observeAll(),
+        remoteRows,
         db.favorites().observe(),
-        accounts.account,
-    ) { locals, remotes, favs, account ->
-        merge(locals, if (account == null) emptyList() else remotes, favs.toHashSet())
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, Snapshot.Empty)
+    ) { locals, remotes, favs ->
+        merge(locals, remotes.orEmpty(), favs.toHashSet(), remoteLoaded = remotes != null)
+    }.conflate().flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, Snapshot.Empty)
+
+    val remoteLoaded: StateFlow<Boolean> = snapshot.map { it.remoteLoaded }.distinctUntilChanged()
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
+    /** Starts a Nextcloud refresh without waiting for it (it must never hold up the UI). */
+    fun requestRemoteSync(force: Boolean = false) { scope.launch { syncRemote(force) } }
+
+    /** App came to the foreground: refresh if the last attempt failed or the cache is getting old. */
+    fun onForeground() {
+        if (accounts.account.value == null || _syncing.value) return
+        if (!_reachable.value || System.currentTimeMillis() - lastRemoteSuccessMs > 15 * 60_000L) requestRemoteSync()
+    }
 
     val timeline: StateFlow<List<MediaItem>> = snapshot.map { it.items }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -131,17 +180,25 @@ class MediaRepository(
             val countByDay = serverDays.associate { it.dayid to it.count }
             for (b in batches) {
                 val photos = api.day(b)
+                _reachable.value = true
                 val grouped = photos.groupBy { it.dayid_real ?: it.dayid }
-                for (dayId in b) {
-                    val list = grouped[dayId].orEmpty().map { it.toEntity() }
-                    db.remote().replaceDay(dayId, list)
+                db.withTransaction { // one change notification per batch, not one per day
+                    for (dayId in b) {
+                        val list = grouped[dayId].orEmpty().map { it.toEntity() }
+                        db.remote().replaceDay(dayId, list)
+                    }
+                    db.days().upsert(b.map { RemoteDay(it, countByDay[it] ?: 0, grouped[it]?.size ?: 0) })
                 }
-                db.days().upsert(b.map { RemoteDay(it, countByDay[it] ?: 0, grouped[it]?.size ?: 0) })
             }
             relink()
         }
-        res.exceptionOrNull()?.let { Log.w(TAG, "remote sync failed", it); _lastError.value = it.message }
-        if (res.isSuccess) _lastError.value = null
+        res.exceptionOrNull()?.let {
+            Log.w(TAG, "remote sync failed", it)
+            _lastError.value = it.message ?: it.javaClass.simpleName
+            // No connection, or the server / tunnel in front of it is down.
+            if (it is java.io.IOException && (it !is HttpException || it.code >= 500)) _reachable.value = false
+        }
+        if (res.isSuccess) { _lastError.value = null; _reachable.value = true; lastRemoteSuccessMs = System.currentTimeMillis() }
         _syncing.value = false
         res
     }
@@ -203,7 +260,7 @@ class MediaRepository(
 
     // --- merge --------------------------------------------------------------------------------
 
-    private fun merge(locals: List<LocalMedia>, remotes: List<RemoteMedia>, favs: Set<Long>): Snapshot {
+    private fun merge(locals: List<LocalMedia>, remotes: List<RemoteMedia>, favs: Set<Long>, remoteLoaded: Boolean): Snapshot {
         localBucket = locals.associate { it.id to it.bucketId }
         val linked = HashMap<Long, RemoteMedia>(remotes.size)
         for (r in remotes) r.linkedLocalId?.let { linked[it] = r }
@@ -217,7 +274,7 @@ class MediaRepository(
             byKey[m.key] = m
             m.remoteFileId?.let { byRemote[it] = m; byKey["R:$it"] = m }
         }
-        return Snapshot(out, byKey, byRemote)
+        return Snapshot(out, byKey, byRemote, remoteLoaded)
     }
 
     private fun localItem(l: LocalMedia, r: RemoteMedia?, favs: Set<Long>) = MediaItem(

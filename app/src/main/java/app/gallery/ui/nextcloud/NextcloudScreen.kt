@@ -158,7 +158,7 @@ private fun SignIn() {
                                 waiting = "Approve access in your browser…"
                                 c.nextcloud.completeLogin(started)
                             }
-                            c.media.syncRemote()
+                            c.media.requestRemoteSync() // a big library loads in the background
                             c.backup.ensureDefaultBuckets()
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
@@ -204,7 +204,13 @@ private fun Connected(nav: NavController) {
             Text(a.uid, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
             Text(a.server.removePrefix("https://"), fontSize = 15.sp, color = G.colors.textSecondary)
             Text("Memories ${a.memoriesVersion}", fontSize = 13.sp, color = G.colors.textSecondary)
-            if (lastErr != null) Text("Last refresh failed: $lastErr", fontSize = 13.sp, color = G.colors.danger)
+            if (lastErr != null) {
+                Text("Can't reach the server right now ($lastErr)", fontSize = 13.sp, color = G.colors.danger)
+                Text(
+                    "Photos on this phone and Nextcloud photos already loaded still work. Changes are saved and sent when the server is back.",
+                    fontSize = 13.sp, color = G.colors.textSecondary,
+                )
+            }
         }
         RowDivider()
         SettingRow("Refresh library", if (syncing) "Refreshing…" else "Reload the Memories timeline") { scope.launch { c.media.syncRemote(force = true); c.nextcloud.refreshClusters() } }

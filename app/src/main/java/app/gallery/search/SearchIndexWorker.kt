@@ -37,7 +37,7 @@ class SearchIndexWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
         val c = (applicationContext as GalleryApp).container
         // When Android starts this job with the app closed, the photo list is still loading from
         // the database; reading it straight away saw nothing and ended the job.
-        val all = withTimeoutOrNull(60_000) { c.media.snapshot.first { it.items.isNotEmpty() } }?.items
+        val all = withTimeoutOrNull(60_000) { c.media.snapshot.first { it.items.isNotEmpty() && it.remoteLoaded } }?.items
             ?: return@coroutineScope Result.success()
         if (c.searchIndexer.pending(all).isEmpty()) return@coroutineScope Result.success()
 

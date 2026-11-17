@@ -26,11 +26,13 @@ class GalleryApp : Application(), SingletonImageLoader.Factory {
         c.nextcloud.start()
         c.scope.launch {
             c.backup.applySchedule()
-            if (c.accounts.account.value != null) {
-                c.media.syncRemote()
-                schedulePeriodicSync()
-            }
+            if (c.accounts.account.value != null) schedulePeriodicSync()
         }
+        // Refresh from Nextcloud whenever the app comes to the foreground (in the background, so the
+        // phone's photos never wait for it), if the last refresh failed or is older than 15 minutes.
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = c.media.onForeground()
+        })
         // After every phone rescan, queue new items for auto-upload.
         c.scope.launch {
             c.media.snapshot.map { s -> s.items.count { it.isLocal } }.distinctUntilChanged().drop(1).collect {

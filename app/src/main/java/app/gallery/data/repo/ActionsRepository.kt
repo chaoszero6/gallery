@@ -73,7 +73,7 @@ class ActionsRepository(
         val ids = items.mapNotNull { it.remoteFileId }
         if (archive) db.remote().delete(ids)
         ids.forEach { runOrQueue(Op.ARCHIVE, OpPayload(fileId = it, flag = archive)) }
-        if (!archive) media.syncRemote()
+        if (!archive) media.requestRemoteSync()
     }
 
     /** Deletes the server copies (they go to the Nextcloud trash bin). */
@@ -113,7 +113,7 @@ class ActionsRepository(
             }
         }
         media.refreshLocal()
-        media.syncRemote()
+        if (items.any { it.isRemote }) media.requestRemoteSync()
     }
 
     suspend fun setLocation(items: List<MediaItem>, lat: Double, lon: Double) {
@@ -127,7 +127,7 @@ class ActionsRepository(
         for (it in items) {
             it.remoteFileId?.let { id ->
                 // Keep the capture date: exiftool can reset it on files without a date tag.
-                val extra = runCatching { api.info(id, false) }.getOrNull()
+                val extra = (if (media.serverReachable.value) runCatching { api.info(id, false) }.getOrNull() else null)
                     ?.takeIf { !it.hasDateTag && it.epoch != null }
                     ?.let { info ->
                         val d = java.time.Instant.ofEpochSecond(info.epoch!!).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
@@ -160,7 +160,17 @@ class ActionsRepository(
 
     // --- execution --------------------------------------------------------------------------------
 
+    /**
+     * Runs a server change now, or queues it (retried when the network is back) if the server is
+     * unreachable. When the last refresh already failed it is queued straight away, so the user
+     * never waits for a connection timeout.
+     */
     private suspend fun runOrQueue(type: String, p: OpPayload) {
+        if (!media.serverReachable.value) {
+            db.pendingOps().insert(PendingOp(type = type, payload = NcJson.encodeToString(OpPayload.serializer(), p)))
+            schedulePending(context)
+            return
+        }
         try {
             execute(type, p)
         } catch (e: IOException) {

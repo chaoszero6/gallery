@@ -90,14 +90,16 @@ class ClipModel(private val context: Context) {
      */
     private fun npuSession(): OrtSession {
         val dir = File(context.filesDir, "clip")
-        val ctxName = "npu_ctx_v${VERSION}_ort${env.version}.onnx"
-        val ctx = File(dir, ctxName)
-        dir.listFiles { f -> f.name.startsWith("npu_ctx_") && f.name != ctxName }?.forEach { it.delete() }
+        val ctxBase = "npu_ctx_v${VERSION}_ort${env.version}"
+        val ctx = File(dir, "$ctxBase.onnx")
+        // Remove compiled graphs from older model/runtime versions (and their side files).
+        dir.listFiles { f -> f.name.startsWith("npu_ctx_") && !f.name.startsWith(ctxBase) }?.forEach { it.delete() }
         fun opts(save: Boolean) = OrtSession.SessionOptions().apply {
             addConfigEntry("session.disable_cpu_ep_fallback", "1")
             if (save) {
                 addConfigEntry("ep.context_enable", "1")
                 addConfigEntry("ep.context_file_path", ctx.path)
+                addConfigEntry("ep.context_embed_mode", "1") // one file: the compiled graph inside the .onnx
             }
             addQnn(
                 mapOf(

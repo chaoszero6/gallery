@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
@@ -69,6 +70,8 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
     val items by c.media.timeline.collectAsState()
     val loaded by c.media.localLoaded.collectAsState()
     val syncing by c.media.syncing.collectAsState()
+    val remoteLoaded by c.media.remoteLoaded.collectAsState()
+    val reachable by c.media.serverReachable.collectAsState()
     val account by c.accounts.account.collectAsState()
     val uiLoaded by c.settings.uiState.collectAsState()
     val ui = uiLoaded ?: UiSettings(tipDismissed = true)
@@ -103,7 +106,7 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
             onLevelChange = { level = it; scope.launch { c.settings.setGridLevel(it) } },
             onOpen = { nav.openViewer(items, it, MediaSource.Timeline) },
             contentPadding = PaddingValues(top = top + 72.dp, bottom = bottom + 110.dp),
-            notBackedUp = { m: MediaItem -> showBadges && m.isLocalOnly && m.bucketId != null && m.bucketId in buckets },
+            notBackedUp = { m: MediaItem -> showBadges && remoteLoaded && m.isLocalOnly && m.bucketId != null && m.bucketId in buckets },
             header = if (showTip) {
                 {
                     item(key = "tip", span = { GridItemSpan(maxLineSpan) }) {
@@ -132,7 +135,14 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
                     CircularProgressIndicator(Modifier.padding(end = 12.dp).size(20.dp), strokeWidth = 2.dp, color = G.colors.textSecondary)
                 }
                 TopIconPill {
-                    PillIcon(if (account != null) Icons.Outlined.CloudSync else Icons.Outlined.Cloud, "Nextcloud backup") { nav.navigate(Routes.NEXTCLOUD) }
+                    PillIcon(
+                        when {
+                            account == null -> Icons.Outlined.Cloud
+                            !reachable -> Icons.Outlined.CloudOff // server down: phone photos and cached ones still work
+                            else -> Icons.Outlined.CloudSync
+                        },
+                        if (account != null && !reachable) "Nextcloud unreachable" else "Nextcloud backup",
+                    ) { nav.navigate(Routes.NEXTCLOUD) }
                     PillIcon(Icons.Rounded.Search, "Search") { nav.navigate(Routes.SEARCH) }
                     Box {
                         PillIcon(Icons.Rounded.MoreVert, "More options") { menu = true }
