@@ -117,7 +117,7 @@ fun SettingsScreen(nav: NavController) {
                     "Search index",
                     when {
                         !c.searchIndexer.clip.available -> "On-device model missing from this build; labels and text search still work"
-                        status.running -> "Indexing ${status.done} of ${status.total}… (${status.msPerItem} ms per item)"
+                        status.running -> "Indexing ${status.done} of ${status.total}…" + if (status.msPerItem > 0) " (${status.msPerItem} ms per item)" else ""
                         else -> "$indexed of ${total.size} items indexed on this phone"
                     },
                 ) {
