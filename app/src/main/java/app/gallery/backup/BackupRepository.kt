@@ -75,24 +75,36 @@ class BackupRepository(
         if (s.buckets.isEmpty()) emptyList()
         else db.local().inBuckets(s.buckets.toList()).filter { s.includeVideos || !it.isVideo }
 
-    /** Compares the phone with the server and keeps the result for the report screen. */
+    /**
+     * Compares the chosen phone folders with their upload folders on the server and keeps the
+     * result for the report screen. Only those server folders are listed; matching against the
+     * whole Memories timeline (photos uploaded elsewhere, e.g. by the Nextcloud app) is opt-in.
+     */
     suspend fun compare(): BackupPlanner.Plan? {
         if (accounts.account.value == null) { _sync.value = SyncState.Failed("Not connected to Nextcloud"); return null }
         return try {
             val s = settings.backupNow()
+            val chosen = s.syncBuckets ?: s.buckets
+            if (chosen.isEmpty()) { _sync.value = SyncState.Failed("Choose at least one folder to check"); return null }
             _sync.value = SyncState.Comparing("Reading phone")
             media.refreshLocal()
-            val locals = candidates(s)
-            _sync.value = SyncState.Comparing("Reading Nextcloud timeline")
-            media.syncRemote()
-            _sync.value = SyncState.Comparing("Listing ${s.destRoot}")
-            val dest = dav.listRecursive(s.destRoot).map { BackupPlanner.DestFile(it.path, it.size, it.fileId) }
-            val index = db.remote().all().map { BackupPlanner.IndexedFile(it.fileId, it.epoch, it.size, it.name) }
+            val locals = db.local().inBuckets(chosen.toList()).filter { s.includeVideos || !it.isVideo }
+            val cfg = cfg(s)
+            val dest = ArrayList<BackupPlanner.DestFile>()
+            for (folder in locals.map { BackupPlanner.bucketFolder(it.bucketName, cfg) }.distinct()) {
+                _sync.value = SyncState.Comparing("Listing $folder on Nextcloud")
+                dav.listRecursive(folder).mapTo(dest) { BackupPlanner.DestFile(it.path, it.size, it.fileId) }
+            }
+            val index = if (s.syncWholeLibrary) {
+                _sync.value = SyncState.Comparing("Checking the rest of Nextcloud")
+                media.syncRemote() // only fetches days that changed since the last refresh
+                db.remote().all().map { BackupPlanner.IndexedFile(it.fileId, it.epoch, it.size, it.name) }
+            } else emptyList()
             val uploaded = db.uploads().all().filter { it.status == UploadRecord.DONE && it.remoteFileId != null }
                 .associate { it.localId to it.remoteFileId!! }
             val plan = BackupPlanner.plan(
                 locals.map { BackupPlanner.LocalFile(it.id, it.name, it.size, it.takenSec, it.bucketName) },
-                dest, index, uploaded, cfg(s),
+                dest, index, uploaded, cfg,
             )
             // Remember links found by name/time so the grid shows them as backed up.
             for (p in plan.present) {

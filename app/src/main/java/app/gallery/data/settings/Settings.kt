@@ -37,6 +37,10 @@ data class BackupSettings(
     val lastAutoUploadMs: Long = 0,
     val lastSyncMs: Long = 0,
     val lastSyncSummary: String = "",
+    /** Phone folders Sync compares; null = the backup folders. */
+    val syncBuckets: Set<Long>? = null,
+    /** Sync also matches against every photo in the Memories timeline, not just the upload folders. */
+    val syncWholeLibrary: Boolean = false,
 )
 
 data class UiSettings(
@@ -77,6 +81,8 @@ class Settings(private val context: Context) {
         val lastSync = longPreferencesKey("bk_last_sync")
         val lastSyncSummary = stringPreferencesKey("bk_last_sync_summary")
         val bucketsInitialised = booleanPreferencesKey("bk_buckets_init")
+        val syncBuckets = stringSetPreferencesKey("bk_sync_buckets")
+        val syncWhole = booleanPreferencesKey("bk_sync_whole")
     }
 
     val ui: Flow<UiSettings> = context.store.data.map { p ->
@@ -112,6 +118,8 @@ class Settings(private val context: Context) {
         lastAutoUploadMs = this[K.lastAuto] ?: 0,
         lastSyncMs = this[K.lastSync] ?: 0,
         lastSyncSummary = this[K.lastSyncSummary] ?: "",
+        syncBuckets = this[K.syncBuckets]?.mapNotNull { it.toLongOrNull() }?.toSet(),
+        syncWholeLibrary = this[K.syncWhole] ?: false,
     )
 
     suspend fun backupNow(): BackupSettings = backup.first()
@@ -136,6 +144,8 @@ class Settings(private val context: Context) {
         it[K.buckets] = v.map(Long::toString).toSet()
         it[K.bucketsInitialised] = true
     }
+    suspend fun setSyncBuckets(v: Set<Long>) = context.store.edit { it[K.syncBuckets] = v.map(Long::toString).toSet() }
+    suspend fun setSyncWholeLibrary(v: Boolean) = context.store.edit { it[K.syncWhole] = v }
     suspend fun setDestRoot(v: String) = context.store.edit { it[K.destRoot] = "/" + v.trim().trim('/') }
     suspend fun setPerBucketFolder(v: Boolean) = context.store.edit { it[K.perBucket] = v }
     suspend fun setYearMonthFolders(v: Boolean) = context.store.edit { it[K.yearMonth] = v }

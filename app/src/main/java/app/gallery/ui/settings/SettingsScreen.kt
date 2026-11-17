@@ -42,6 +42,9 @@ import app.gallery.data.settings.UiSettings
 import app.gallery.search.ClipModel
 import app.gallery.search.SearchIndexWorker
 import app.gallery.ui.LocalContainer
+import app.gallery.ui.components.BackgroundAccess
+import app.gallery.ui.components.BackgroundAccessDialog
+import app.gallery.ui.components.rememberBackgroundAllowed
 import app.gallery.ui.Routes
 import app.gallery.ui.components.CircleBackButton
 import app.gallery.ui.components.RoundedSection
@@ -85,6 +88,10 @@ fun SettingsScreen(nav: NavController) {
     val indexed by c.db.search().observeCount(ClipModel.VERSION).collectAsState(0)
     val total by c.media.timeline.collectAsState()
     val status by c.searchIndexer.status.collectAsState()
+    val backgroundAllowed = rememberBackgroundAllowed()
+    var askBackground by remember { mutableStateOf(false) }
+    fun startIndexing() = SearchIndexWorker.schedule(context, whileCharging = false, userRequested = true)
+    if (askBackground) BackgroundAccessDialog(onDismiss = { askBackground = false }, onContinue = { askBackground = false; startIndexing() })
 
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().navigationBarsPadding().padding(top = 70.dp, bottom = 40.dp)) {
@@ -113,7 +120,13 @@ fun SettingsScreen(nav: NavController) {
                         status.running -> "Indexing ${status.done} of ${status.total}… (${status.msPerItem} ms per item)"
                         else -> "$indexed of ${total.size} items indexed on this phone"
                     },
-                ) { SearchIndexWorker.schedule(context, whileCharging = false, replace = true) }
+                ) {
+                    when {
+                        status.running -> {}
+                        !backgroundAllowed -> askBackground = true
+                        else -> startIndexing()
+                    }
+                }
                 RowDivider()
                 SettingRow("Only index while charging", "Building the index uses the processor for a while", checked = ui.searchIndexWhileCharging) {
                     scope.launch { c.settings.setSearchIndexWhileCharging(!ui.searchIndexWhileCharging) }
@@ -129,6 +142,12 @@ fun SettingsScreen(nav: NavController) {
             }
             SectionLabel("Permissions")
             RoundedSection {
+                SettingRow(
+                    "Background activity",
+                    if (backgroundAllowed) "Allowed: backup and search indexing keep running when Gallery is closed"
+                    else "Battery optimisation pauses backup and search indexing when Gallery is closed. Tap to allow",
+                ) { BackgroundAccess.request(context) }
+                RowDivider()
                 if (Build.VERSION.SDK_INT >= 31) {
                     SettingRow(
                         "Media management",

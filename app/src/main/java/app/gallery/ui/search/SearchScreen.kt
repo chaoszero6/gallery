@@ -73,6 +73,8 @@ import androidx.navigation.NavController
 import app.gallery.data.model.MediaSource
 import app.gallery.search.ClipModel
 import app.gallery.search.SearchIndexWorker
+import app.gallery.ui.components.BackgroundAccessDialog
+import app.gallery.ui.components.rememberBackgroundAllowed
 import app.gallery.search.SearchResults
 import app.gallery.ui.GridArgs
 import app.gallery.ui.LocalContainer
@@ -104,6 +106,10 @@ fun SearchScreen(nav: NavController) {
     val indexed by c.db.search().observeCount(ClipModel.VERSION).collectAsState(0)
     val total by c.media.timeline.collectAsState()
     val status by c.searchIndexer.status.collectAsState()
+    val backgroundAllowed = rememberBackgroundAllowed()
+    var askBackground by remember { mutableStateOf(false) }
+    fun startIndexing() = SearchIndexWorker.schedule(c.context, whileCharging = false, userRequested = true)
+    if (askBackground) BackgroundAccessDialog(onDismiss = { askBackground = false }, onContinue = { askBackground = false; startIndexing() })
     val focus = remember { FocusRequester() }
     val kb = LocalSoftwareKeyboardController.current
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -179,7 +185,7 @@ fun SearchScreen(nav: NavController) {
                             LinearProgressIndicator({ indexed.toFloat() / n }, Modifier.fillMaxWidth())
                             if (!status.running) Text(
                                 "Index now", color = G.colors.accent, fontSize = 14.sp,
-                                modifier = Modifier.padding(top = 8.dp).clickable { SearchIndexWorker.schedule(c.context, whileCharging = false, replace = true) },
+                                modifier = Modifier.padding(top = 8.dp).clickable { if (backgroundAllowed) startIndexing() else askBackground = true },
                             )
                         }
                     }

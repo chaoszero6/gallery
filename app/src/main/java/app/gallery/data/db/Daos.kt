@@ -207,6 +207,10 @@ interface SearchDao {
     @Query("DELETE FROM search_index WHERE key IN (:keys)")
     suspend fun delete(keys: List<String>)
 
+    /** Entries with nothing in them (failed, or saved by a run that was stopped mid-item). */
+    @Query("DELETE FROM search_index WHERE embedding IS NULL AND labels = '' AND ocrText = ''")
+    suspend fun deleteEmpty(): Int
+
     @Query("SELECT * FROM recent_search ORDER BY at DESC LIMIT 10")
     fun observeRecent(): Flow<List<RecentSearch>>
 

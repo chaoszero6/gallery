@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -191,7 +192,8 @@ private fun Connected(nav: NavController) {
     var confirmDisconnect by remember { mutableStateOf(false) }
     var editDest by remember { mutableStateOf(false) }
     var showFolders by remember { mutableStateOf(false) }
-    val buckets by produceState(emptyList<BucketRow>(), showFolders) { value = c.db.local().buckets() }
+    var showSyncFolders by remember { mutableStateOf(false) }
+    val buckets by produceState(emptyList<BucketRow>(), showFolders, showSyncFolders) { value = c.db.local().buckets() }
     val counts by c.db.local().observeBuckets().collectAsState(emptyList())
 
     fun update(block: suspend () -> Unit) = scope.launch { block(); c.backup.applySchedule() }
@@ -241,10 +243,35 @@ private fun Connected(nav: NavController) {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 14.dp)) {
             Text("Check this phone against Nextcloud", fontSize = 17.sp, color = G.colors.text)
             Text(
-                "Compares every picture in the folders you back up with your server, then uploads the ones that are missing. Nothing is deleted or overwritten.",
+                "Compares the phone folders you choose with their folders on your server, then uploads the pictures that are missing. Nothing is deleted or overwritten.",
                 fontSize = 14.sp, color = G.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+        }
+        val syncChosen = s.syncBuckets ?: s.buckets
+        val syncCounts = counts.filter { it.bucketId in syncChosen }
+        fun toggleSync(id: Long) = update { c.settings.setSyncBuckets(if (id in syncChosen) syncChosen - id else syncChosen + id) }
+        SettingRow(
+            "Folders to check",
+            if (syncCounts.isEmpty()) "None selected" else syncCounts.joinToString(", ") { it.bucketName.ifBlank { "Internal storage" } } + " · ${syncCounts.sumOf { it.count }} items",
+        ) { showSyncFolders = !showSyncFolders }
+        if (showSyncFolders) buckets.forEach { b ->
+            val on = b.bucketId in syncChosen
+            Row(
+                Modifier.fillMaxWidth().clickable { toggleSync(b.bucketId) }.padding(start = 38.dp, end = 22.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(b.bucketName.ifBlank { "Internal storage" }, fontSize = 16.sp, color = G.colors.text, modifier = Modifier.weight(1f))
+                Text("${counts.firstOrNull { it.bucketId == b.bucketId }?.count ?: 0}  ", fontSize = 14.sp, color = G.colors.textSecondary)
+                Checkbox(on, { toggleSync(b.bucketId) })
+            }
+        }
+        RowDivider()
+        SettingRow(
+            "Also check the rest of Nextcloud",
+            "Finds pictures already uploaded to other folders (for example by the Nextcloud app). Slower with a big library",
+            checked = s.syncWholeLibrary,
+        ) { update { c.settings.setSyncWholeLibrary(!s.syncWholeLibrary) } }
+        Column(Modifier.padding(horizontal = 22.dp, vertical = 14.dp)) {
             when (val st = sync) {
                 is BackupRepository.SyncState.Comparing -> Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Text("  ${st.step}…", color = G.colors.text)
@@ -253,7 +280,7 @@ private fun Connected(nav: NavController) {
                 is BackupRepository.SyncState.Ready -> {
                     val p = st.plan
                     Text("${p.present.size} on Nextcloud · ${p.missing.size} missing" + if (p.missing.isNotEmpty()) " (${fmtBytes(p.missingBytes)})" else "", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
-                    if (p.missing.isEmpty()) Text("Everything in your backup folders is on Nextcloud.", fontSize = 14.sp, color = G.colors.textSecondary)
+                    if (p.missing.isEmpty()) Text("Everything in the chosen folders is on Nextcloud.", fontSize = 14.sp, color = G.colors.textSecondary)
                     else {
                         val missingItems = p.missing.mapNotNull { m -> c.media.item("L:${m.local.id}") }
                         Spacer(Modifier.height(10.dp))
@@ -279,7 +306,7 @@ private fun Connected(nav: NavController) {
                     Spacer(Modifier.size(10.dp))
                 }
                 TextPill(if (ready != null) "Check again" else "Sync now", dark = ready == null) {
-                    if (sync !is BackupRepository.SyncState.Comparing) scope.launch { c.backup.compare() }
+                    if (sync !is BackupRepository.SyncState.Comparing && syncChosen.isNotEmpty()) scope.launch { c.backup.compare() }
                 }
             }
         }

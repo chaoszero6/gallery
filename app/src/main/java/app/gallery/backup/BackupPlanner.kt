@@ -40,9 +40,14 @@ object BackupPlanner {
         val missingBytes: Long get() = missing.sumOf { it.local.size }
     }
 
+    /** The server folder a phone folder backs up into (before any year/month subfolders). */
+    fun bucketFolder(bucketName: String, cfg: Config): String {
+        val root = cfg.destRoot.trimEnd('/')
+        return if (cfg.perBucketFolder) root + "/" + sanitize(bucketName.ifBlank { "Phone" }) else root
+    }
+
     fun folderFor(local: LocalFile, cfg: Config): String {
-        val sb = StringBuilder(cfg.destRoot.trimEnd('/'))
-        if (cfg.perBucketFolder) sb.append('/').append(sanitize(local.bucketName.ifBlank { "Phone" }))
+        val sb = StringBuilder(bucketFolder(local.bucketName, cfg))
         if (cfg.yearMonthFolders && local.takenSec > 0) {
             val d = Instant.ofEpochSecond(local.takenSec).atZone(cfg.zone)
             sb.append('/').append(d.year).append('/').append("%02d".format(d.monthValue))

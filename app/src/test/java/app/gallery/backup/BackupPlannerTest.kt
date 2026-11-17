@@ -86,4 +86,14 @@ class BackupPlannerTest {
         assertThat(BackupPlanner.freePath("/P", "x.tar.gz", setOf("/p/x.tar.gz"))).isEqualTo("/P/x.tar (1).gz")
         assertThat(BackupPlanner.freePath("/P", "noext", setOf("/p/noext"))).isEqualTo("/P/noext (1)")
     }
+
+    @Test fun `sync lists only the chosen folders' upload folders`() {
+        assertThat(BackupPlanner.bucketFolder("Camera", cfg)).isEqualTo("/Photos/Camera")
+        assertThat(BackupPlanner.bucketFolder("", cfg)).isEqualTo("/Photos/Phone")
+        assertThat(BackupPlanner.bucketFolder("Camera", cfg.copy(perBucketFolder = false))).isEqualTo("/Photos")
+        // Year/month subfolders sit under the bucket folder, so a recursive listing of it finds them.
+        val ym = cfg.copy(yearMonthFolders = true)
+        assertThat(BackupPlanner.folderFor(BackupPlanner.LocalFile(1, "a.jpg", 1, 1_700_000_000, "Camera"), ym))
+            .startsWith(BackupPlanner.bucketFolder("Camera", ym) + "/")
+    }
 }
