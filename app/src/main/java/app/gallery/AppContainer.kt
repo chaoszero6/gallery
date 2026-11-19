@@ -38,6 +38,7 @@ class AppContainer(val context: Context) {
     val actions = ActionsRepository(context, db, api, dav, nextcloud, media)
     val uploadEngine = UploadEngine(dav, db.uploads())
     val backup = BackupRepository(context, db, settings, dav, accounts, media)
+    val settingsBackup = app.gallery.data.settings.SettingsBackup(settings, dav)
     val imageLoader = buildImageLoader(context, http)
     val images = ImageSources(api)
     val searchIndexer = SearchIndexer(context, db, http, images, settings)

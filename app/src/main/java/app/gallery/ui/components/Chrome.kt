@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -288,13 +289,14 @@ fun HGap(w: Int = 8) = Spacer(Modifier.width(w.dp))
  * same line (64 dp tall).
  */
 @Composable
-fun OneUiTopBar(title: String, modifier: Modifier = Modifier, onBack: () -> Unit) {
+fun OneUiTopBar(title: String, modifier: Modifier = Modifier, showTitle: Boolean = true, onBack: () -> Unit) {
+    val titleAlpha by androidx.compose.animation.core.animateFloatAsState(if (showTitle) 1f else 0f, label = "title")
     Row(modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.width(60.dp).height(64.dp).clickable(remember { MutableInteractionSource() }, null, onClick = onBack),
             contentAlignment = Alignment.Center,
         ) { Icon(Sym.Back, "Back", Modifier.size(24.dp), tint = G.colors.text) }
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = G.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = G.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { alpha = titleAlpha })
     }
 }
 

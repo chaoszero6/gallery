@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.gallery.data.model.MediaItem
 import app.gallery.ui.LocalContainer
+import app.gallery.ui.theme.Sym
 import app.gallery.ui.sharedMedia
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -54,6 +55,8 @@ fun MediaThumb(
     selecting: Boolean = false,
     selected: Boolean = false,
     notBackedUp: Boolean = false,
+    /** On the phone and on Nextcloud: shows a cloud with a tick. */
+    backedUp: Boolean = false,
     compact: Boolean = false,
     onExpand: (() -> Unit)? = null,
     sharedKey: String? = null,
@@ -82,6 +85,7 @@ fun MediaThumb(
             when {
                 item.isRemoteOnly -> Icon(Icons.Rounded.Cloud, "On Nextcloud", Modifier.align(Alignment.TopEnd).padding(5.dp).size(15.dp), tint = Color.White.copy(alpha = 0.92f))
                 notBackedUp -> Icon(Icons.Rounded.CloudOff, "Not backed up", Modifier.align(Alignment.TopEnd).padding(5.dp).size(14.dp), tint = Color.White.copy(alpha = 0.85f))
+                backedUp -> Icon(Sym.CloudDone, "Backed up to Nextcloud", Modifier.align(Alignment.TopEnd).padding(5.dp).size(15.dp), tint = Color.White.copy(alpha = 0.92f))
             }
         } else if (item.isRemoteOnly) {
             Icon(Icons.Rounded.Cloud, null, Modifier.align(Alignment.TopEnd).padding(2.dp).size(10.dp), tint = Color.White.copy(alpha = 0.9f))

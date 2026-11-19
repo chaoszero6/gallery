@@ -59,6 +59,8 @@ import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.map.ClusterMap
 import app.gallery.ui.openClusters
 import app.gallery.ui.openGrid
+import app.gallery.ui.components.OneHandBehavior
+import app.gallery.ui.components.OneHandHeader
 import app.gallery.ui.theme.G
 import app.gallery.ui.theme.Sym
 import java.time.LocalDate
@@ -94,7 +96,10 @@ fun CollectionsTab(nav: NavController) {
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x33F4B8A8), G.colors.background, G.colors.background)))) {
-        LazyColumn(contentPadding = PaddingValues(top = top + 58.dp, bottom = bottom + 110.dp)) {
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = 1)
+        OneHandBehavior(listState, hasContent = true)
+        LazyColumn(state = listState, contentPadding = PaddingValues(top = top + 58.dp, bottom = bottom + 110.dp)) {
+            item(key = "one-hand") { OneHandHeader("Collections") }
             // Stories (On this day)
             item(key = "stories") {
                 SectionHeader("Stories")

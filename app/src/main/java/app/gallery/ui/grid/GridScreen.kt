@@ -94,6 +94,10 @@ fun GridScreen(nav: NavController, id: String?) {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val list = items
+    val uiNow by c.settings.uiState.collectAsState()
+    val signedIn by c.accounts.account.collectAsState()
+    val remoteLoaded by c.media.remoteLoaded.collectAsState()
+    val showTicks = uiNow?.showBackupBadges == true && signedIn != null && remoteLoaded
 
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
         when {
@@ -103,6 +107,7 @@ fun GridScreen(nav: NavController, id: String?) {
                 items = list, state = gridState, selection = selection, level = level, onLevelChange = { level = it },
                 onOpen = { nav.openViewer(list, it, args.source) },
                 contentPadding = PaddingValues(top = top + 66.dp, bottom = bottom + 100.dp),
+                backedUp = { m -> showTicks && m.isLocal && m.isRemote },
                 header = {
                     item(key = "title", span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(start = 20.dp, top = 20.dp, bottom = 6.dp)) {

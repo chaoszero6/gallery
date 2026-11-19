@@ -87,6 +87,13 @@ class DavClient(private val http: OkHttpClient, private val account: () -> Accou
         }
     }
 
+    /** Reads a small text file; null if it does not exist. */
+    suspend fun getText(path: String): String? = try {
+        http.text(Request.Builder().url(fileUrl(path)).get().build())
+    } catch (e: HttpException) {
+        if (e.code == 404) null else throw e
+    }
+
     /** Simple upload. Returns the new file id from the oc-fileid header, if present. */
     suspend fun put(path: String, body: RequestBody, mtimeSec: Long?): Long? {
         val b = Request.Builder().url(fileUrl(path)).put(body)

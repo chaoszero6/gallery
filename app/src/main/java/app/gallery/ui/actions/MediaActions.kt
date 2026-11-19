@@ -273,7 +273,7 @@ class MediaActions internal constructor(
             UploadRecord(m.localId, UploadRecord.QUEUED, path, null, m.size)
         }
         c.db.uploads().upsertAll(recs)
-        c.backup.startUploads()
+        c.backup.startUploads(userRequested = true)
         toast("Backing up ${recs.size} item(s)")
     }
 

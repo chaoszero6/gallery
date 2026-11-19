@@ -62,7 +62,10 @@ import app.gallery.data.settings.BackupSettings
 import app.gallery.ui.GridArgs
 import app.gallery.ui.LocalContainer
 import app.gallery.ui.actions.NameDialog
+import app.gallery.ui.components.OneHandHeader
 import app.gallery.ui.components.OneUiTopBar
+import app.gallery.ui.components.oneHandCollapsed
+import app.gallery.ui.components.rememberOneHandScroll
 import app.gallery.ui.components.OneUiSwitch
 import app.gallery.ui.components.CoverImage
 import app.gallery.ui.components.RoundedSection
@@ -70,6 +73,7 @@ import app.gallery.ui.components.SectionLabel
 import app.gallery.ui.components.TextPill
 import app.gallery.ui.openGrid
 import app.gallery.ui.settings.RowDivider
+import app.gallery.ui.settings.RestoreSettingsDialog
 import app.gallery.ui.settings.SettingRow
 import app.gallery.ui.theme.G
 import kotlinx.coroutines.Job
@@ -89,8 +93,10 @@ fun NextcloudScreen(nav: NavController) {
     val account by c.accounts.account.collectAsState()
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        OneUiTopBar("Nextcloud backup & sync") { nav.popBackStack() }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 40.dp)) {
+        val scroll = rememberOneHandScroll()
+        OneUiTopBar("Nextcloud backup & sync", showTitle = scroll.oneHandCollapsed()) { nav.popBackStack() }
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).navigationBarsPadding().padding(bottom = 40.dp)) {
+            OneHandHeader("Nextcloud backup & sync")
             Text(
                 "Your only cloud: photos are backed up to and shown from your own Nextcloud server with Memories.",
                 fontSize = 14.sp, color = G.colors.textSecondary, modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 12.dp),
@@ -186,6 +192,7 @@ private fun Connected(nav: NavController) {
     val progress by c.backup.progress.collectAsState()
     val sync by c.backup.sync.collectAsState()
     val records by c.backup.records.collectAsState(emptyList())
+    val job by c.backup.uploadJob.collectAsState(null)
     val syncing by c.media.syncing.collectAsState()
     val lastErr by c.media.lastError.collectAsState()
     var confirmDisconnect by remember { mutableStateOf(false) }
@@ -198,6 +205,31 @@ private fun Connected(nav: NavController) {
     fun update(block: suspend () -> Unit) = scope.launch { block(); c.backup.applySchedule() }
 
     val a = account ?: return
+
+    // First time this account is connected here: offer the settings backup kept on its Nextcloud.
+    val context = LocalContext.current
+    var offer by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(a.server, a.uid) {
+        val prefs = context.getSharedPreferences("settings_backup", android.content.Context.MODE_PRIVATE)
+        val key = "offered:${a.server}:${a.uid}"
+        if (prefs.getBoolean(key, false)) return@LaunchedEffect
+        runCatching { c.settingsBackup.fromNextcloud() }.onSuccess { json ->
+            prefs.edit().putBoolean(key, true).apply() // ask once (not again after Cancel)
+            offer = json
+        }
+    }
+    offer?.let { json ->
+        val info = remember(json) { c.settingsBackup.info(json) }
+        RestoreSettingsDialog("your Nextcloud", info, onDismiss = { offer = null }) {
+            offer = null
+            scope.launch {
+                runCatching { c.settingsBackup.restore(json) }.onSuccess { n ->
+                    c.backup.applySchedule()
+                    android.widget.Toast.makeText(context, "Restored $n settings", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     RoundedSection {
         Column(Modifier.padding(horizontal = 22.dp, vertical = 14.dp)) {
             Text(a.uid, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
@@ -232,13 +264,14 @@ private fun Connected(nav: NavController) {
                 Text("${fmtBytes(progress.bytesSent)} of ${fmtBytes(progress.bytesTotal)}", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
             } else {
                 Text(if (queued > 0) "$queued waiting to upload" else "Up to date", fontSize = 13.5.sp, color = G.colors.text)
+                if (queued > 0) Text(uploadWaitReason(job, s, records), fontSize = 12.sp, color = G.colors.textSecondary)
                 progress.error?.let { Text(it, fontSize = 12.sp, color = G.colors.danger) }
             }
             Text("Last auto-upload: ${ago(s.lastAutoUploadMs)}", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 6.dp))
             Text("Last sync: ${ago(s.lastSyncMs)}${if (s.lastSyncSummary.isNotBlank()) " · ${s.lastSyncSummary}" else ""}", fontSize = 11.sp, color = G.colors.textSecondary)
             Text("$done backed up by this app", fontSize = 11.sp, color = G.colors.textSecondary)
         }
-        if (queued > 0 && !progress.running) { RowDivider(); SettingRow("Upload now", "Waiting items start when the network and charging rules allow") { scope.launch { c.backup.startUploads() } } }
+        if (queued > 0 && !progress.running) { RowDivider(); SettingRow("Upload now", "Start uploading the waiting items") { scope.launch { c.backup.startUploads(userRequested = true) } } }
         if (failed > 0) { RowDivider(); SettingRow("Retry $failed failed", records.firstOrNull { it.status == UploadRecord.FAILED }?.error) { scope.launch { c.backup.retryFailed() } } }
     }
 
@@ -300,6 +333,10 @@ private fun Connected(nav: NavController) {
                         )
                         Text("Uploads go to ${s.destRoot}" + if (s.perBucketFolder) "/<album>" else "", fontSize = 11.sp, color = G.colors.textSecondary, modifier = Modifier.padding(top = 4.dp))
                     }
+                }
+                is BackupRepository.SyncState.Queued -> {
+                    Text("${st.count} queued for upload (${fmtBytes(st.bytes)})", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = G.colors.text)
+                    Text("They upload in the background with a notification; progress also shows under Status above.", fontSize = 14.sp, color = G.colors.textSecondary)
                 }
                 BackupRepository.SyncState.Idle -> {}
             }
@@ -366,4 +403,25 @@ private fun Connected(nav: NavController) {
         dismissButton = { TextButton({ confirmDisconnect = false }) { Text("Cancel") } },
     )
     LaunchedEffect(Unit) { c.nextcloud.refreshConfig() }
+}
+
+/** Why queued uploads are not moving: the job's state plus the network and charging rules. */
+@Composable
+private fun uploadWaitReason(job: androidx.work.WorkInfo?, s: BackupSettings, records: List<UploadRecord>): String {
+    val context = LocalContext.current
+    val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
+    val onWifi = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true
+    val online = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val charging = context.getSystemService(android.os.BatteryManager::class.java)?.isCharging == true
+    val lastError = records.filter { it.status == UploadRecord.QUEUED && it.error != null }.maxByOrNull { it.updatedAt }?.error
+    return when {
+        job == null -> "Not started. Tap Upload now."
+        job.state == androidx.work.WorkInfo.State.RUNNING -> "Starting…"
+        !online -> "Waiting for an internet connection"
+        s.wifiOnly && !onWifi -> "Waiting for Wi-Fi (Upload on Wi-Fi only is on)"
+        s.chargingOnly && !charging -> "Waiting for the phone to charge (Only while charging is on)"
+        job.runAttemptCount > 0 -> "Trying again shortly" + (lastError?.let { ". Last error: $it" } ?: "")
+        else -> "Starting…"
+    }
 }

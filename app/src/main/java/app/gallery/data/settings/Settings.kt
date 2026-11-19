@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.map
 
 private val Context.store by preferencesDataStore("settings")
 
+/** Phone-specific state, not choices: left out of settings backups. */
+private val NOT_EXPORTED = setOf("bk_auto_since", "bk_last_auto", "bk_last_sync", "bk_last_sync_summary", "bk_buckets_init")
+
 data class BackupSettings(
     val autoUpload: Boolean = false,
     /** Only items taken after this instant are auto-uploaded; older ones are Sync's job. */
@@ -121,6 +124,77 @@ class Settings(private val context: Context) {
         syncBuckets = this[K.syncBuckets]?.mapNotNull { it.toLongOrNull() }?.toSet(),
         syncWholeLibrary = this[K.syncWhole] ?: false,
     )
+
+    /**
+     * Every setting as JSON, for backup. Values that describe this phone's history rather than the
+     * user's choices (last sync times and the like) are left out. The Nextcloud sign-in is not in
+     * this store at all (see AccountStore), so it is never exported.
+     */
+    suspend fun exportAll(): kotlinx.serialization.json.JsonObject {
+        val p = context.store.data.first()
+        val ui = UiSettings()
+        val bk = BackupSettings()
+        // Every known setting with its current value, defaults included: an unchanged setting is not
+        // stored at all, and a restore must still put it back to that value.
+        val values = linkedMapOf<String, Any>()
+        fun <T : Any> add(key: Preferences.Key<T>, default: T) { values[key.name] = p[key] ?: default }
+        add(K.tipDismissed, ui.tipDismissed); add(K.gridLevel, ui.gridLevel); add(K.videoAutoplay, ui.videoAutoplay)
+        add(K.showBadges, ui.showBackupBadges); add(K.searchCharging, ui.searchIndexWhileCharging); add(K.searchRemote, ui.searchIndexRemote)
+        add(K.essential, ui.essentialAlbums); add(K.hidden, ui.hiddenAlbums)
+        add(K.autoUpload, bk.autoUpload); add(K.buckets, bk.buckets.map(Long::toString).toSet()); add(K.destRoot, bk.destRoot)
+        add(K.perBucket, bk.perBucketFolder); add(K.yearMonth, bk.yearMonthFolders); add(K.wifiOnly, bk.wifiOnly)
+        add(K.charging, bk.chargingOnly); add(K.videos, bk.includeVideos); add(K.roaming, bk.allowRoaming)
+        add(K.dailySync, bk.dailySync); add(K.syncWhole, bk.syncWholeLibrary)
+        p[K.syncBuckets]?.let { values[K.syncBuckets.name] = it } // unset means "same as the backup folders"
+        for ((k, v) in p.asMap()) if (k.name !in values) values[k.name] = v // anything newer
+        return kotlinx.serialization.json.buildJsonObject {
+            for ((name, v) in values) {
+                if (name in NOT_EXPORTED) continue
+                val (t, value) = when (v) {
+                    is Boolean -> "bool" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is Int -> "int" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is Long -> "long" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is Float -> "float" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is Double -> "double" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is String -> "string" to kotlinx.serialization.json.JsonPrimitive(v)
+                    is Set<*> -> "set" to kotlinx.serialization.json.JsonArray(v.map { kotlinx.serialization.json.JsonPrimitive(it.toString()) })
+                    else -> continue
+                }
+                put(name, kotlinx.serialization.json.buildJsonObject { put("type", kotlinx.serialization.json.JsonPrimitive(t)); put("value", value) })
+            }
+        }
+    }
+
+    /**
+     * Writes back settings from [exportAll]. Returns how many were applied. Auto-upload, if on,
+     * counts from now, so restoring never queues the phone's whole history (Sync is for that).
+     */
+    suspend fun importAll(o: kotlinx.serialization.json.JsonObject): Int {
+        var n = 0
+        context.store.edit { p ->
+            for ((name, e) in o) {
+                if (name in NOT_EXPORTED) continue
+                val obj = e as? kotlinx.serialization.json.JsonObject ?: continue
+                val t = (obj["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: continue
+                val v = obj["value"] ?: continue
+                val prim = v as? kotlinx.serialization.json.JsonPrimitive
+                when (t) {
+                    "bool" -> prim?.content?.toBooleanStrictOrNull()?.let { p[booleanPreferencesKey(name)] = it }
+                    "int" -> prim?.content?.toIntOrNull()?.let { p[intPreferencesKey(name)] = it }
+                    "long" -> prim?.content?.toLongOrNull()?.let { p[longPreferencesKey(name)] = it }
+                    "float" -> prim?.content?.toFloatOrNull()?.let { p[androidx.datastore.preferences.core.floatPreferencesKey(name)] = it }
+                    "double" -> prim?.content?.toDoubleOrNull()?.let { p[androidx.datastore.preferences.core.doublePreferencesKey(name)] = it }
+                    "string" -> prim?.content?.let { p[stringPreferencesKey(name)] = it }
+                    "set" -> (v as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }?.toSet()?.let { p[stringSetPreferencesKey(name)] = it }
+                    else -> null
+                } ?: continue
+                n++
+            }
+            if (p[K.autoUpload] == true) p[K.autoSince] = System.currentTimeMillis()
+            if (p[K.buckets] != null) p[K.bucketsInitialised] = true
+        }
+        return n
+    }
 
     suspend fun backupNow(): BackupSettings = backup.first()
     suspend fun uiNow(): UiSettings = ui.first()

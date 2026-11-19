@@ -47,7 +47,10 @@ import app.gallery.ui.components.BackgroundAccessDialog
 import app.gallery.ui.components.rememberBackgroundAllowed
 import app.gallery.ui.Routes
 import app.gallery.ui.components.OneUiSwitch
+import app.gallery.ui.components.OneHandHeader
 import app.gallery.ui.components.OneUiTopBar
+import app.gallery.ui.components.oneHandCollapsed
+import app.gallery.ui.components.rememberOneHandScroll
 import androidx.compose.foundation.layout.heightIn
 import app.gallery.ui.components.RoundedSection
 import app.gallery.ui.components.SectionLabel
@@ -94,8 +97,10 @@ fun SettingsScreen(nav: NavController) {
 
     Box(Modifier.fillMaxSize().background(G.colors.background)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        OneUiTopBar("Gallery settings") { nav.popBackStack() }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 40.dp)) {
+        val scroll = rememberOneHandScroll()
+        OneUiTopBar("Gallery settings", showTitle = scroll.oneHandCollapsed()) { nav.popBackStack() }
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).navigationBarsPadding().padding(bottom = 40.dp)) {
+            OneHandHeader("Gallery settings")
             RoundedSection {
                 SettingRow(
                     "Nextcloud backup & sync",
@@ -161,6 +166,7 @@ fun SettingsScreen(nav: NavController) {
                     context.startActivity(Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                 }
             }
+            SettingsBackupSection()
             SectionLabel("About")
             RoundedSection {
                 SettingRow("Gallery ${BuildConfig.VERSION_NAME}", "Maps © OpenStreetMap contributors. Smart search runs on this phone.") {}
@@ -201,4 +207,110 @@ private fun ModelSpeedRow(items: List<app.gallery.data.model.MediaItem>) {
             busy = false
         }
     }
+}
+
+/**
+ * Back up / restore every setting except the Nextcloud sign-in: to a file the user picks, or to
+ * their Nextcloud (once signed in, so a new phone can get its backup folders and options back).
+ */
+@Composable
+private fun SettingsBackupSection() {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val account by c.accounts.account.collectAsState()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var pendingRestore by remember { mutableStateOf<Pair<String, String>?>(null) } // source label, json
+    fun toast(t: String) = android.widget.Toast.makeText(context, t, android.widget.Toast.LENGTH_LONG).show()
+
+    val saveFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            busy = "Saving…"
+            runCatching {
+                val json = c.settingsBackup.toJson()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+                }
+            }.onSuccess { toast("Settings saved") }.onFailure { toast("Could not save: ${it.message}") }
+            busy = null
+        }
+    }
+    val openFile = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+                }
+            }.onSuccess { pendingRestore = "this file" to it }.onFailure { toast("Could not read the file: ${it.message}") }
+        }
+    }
+
+    SectionLabel("Backup and restore")
+    RoundedSection {
+        SettingRow("Save settings to a file", busy ?: "Everything except your Nextcloud sign-in") {
+            saveFile.launch("gallery-settings-${java.time.LocalDate.now()}.json")
+        }
+        RowDivider()
+        SettingRow("Restore settings from a file") { openFile.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+        if (account != null) {
+            RowDivider()
+            SettingRow("Back up settings to Nextcloud", "Saved as ${app.gallery.data.settings.SettingsBackup.REMOTE_PATH}") {
+                scope.launch {
+                    busy = "Saving to Nextcloud…"
+                    runCatching { c.settingsBackup.saveToNextcloud() }
+                        .onSuccess { toast("Settings backed up to Nextcloud") }.onFailure { toast("Could not back up: ${it.message}") }
+                    busy = null
+                }
+            }
+            RowDivider()
+            SettingRow("Restore settings from Nextcloud") {
+                scope.launch {
+                    runCatching { c.settingsBackup.fromNextcloud() }
+                        .onSuccess { json -> if (json == null) toast("No settings backup on Nextcloud yet") else pendingRestore = "Nextcloud" to json }
+                        .onFailure { toast("Could not reach Nextcloud: ${it.message}") }
+                }
+            }
+        }
+    }
+
+    pendingRestore?.let { (source, json) ->
+        val info = remember(json) { c.settingsBackup.info(json) }
+        RestoreSettingsDialog(source, info, onDismiss = { pendingRestore = null }) {
+            pendingRestore = null
+            scope.launch {
+                runCatching { c.settingsBackup.restore(json) }
+                    .onSuccess { n -> c.backup.applySchedule(); toast("Restored $n settings") }
+                    .onFailure { toast(it.message ?: "Could not restore") }
+            }
+        }
+    }
+}
+
+/** Confirms a restore, showing when and on which phone the backup was made. */
+@Composable
+fun RestoreSettingsDialog(source: String, info: app.gallery.data.settings.SettingsBackup.Info?, onDismiss: () -> Unit, onRestore: () -> Unit) {
+    val made = info?.exportedAtMs?.let {
+        java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm"))
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Restore settings?") },
+        text = {
+            Text(
+                listOfNotNull(
+                    "Replaces your current settings with the backup from $source" + (made?.let { ", saved $it" } ?: "") + (info?.device?.let { " on $it" } ?: "") + ".",
+                    "Your Nextcloud sign-in is not changed.",
+                ).joinToString("\n\n"),
+            )
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onRestore) { Text("Restore") } },
+        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text("Cancel") } },
+    )
 }

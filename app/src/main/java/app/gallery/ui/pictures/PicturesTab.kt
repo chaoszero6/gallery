@@ -58,6 +58,8 @@ import app.gallery.ui.components.SelectionBottomBar
 import app.gallery.ui.components.SelectionState
 import app.gallery.ui.components.SelectionTopBar
 import app.gallery.ui.components.TipCard
+import app.gallery.ui.components.OneHandBehavior
+import app.gallery.ui.components.OneHandHeader
 import app.gallery.ui.components.TopFade
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.openViewer
@@ -78,7 +80,8 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
     val ui = uiLoaded ?: UiSettings(tipDismissed = true)
     val backup by c.settings.backup.collectAsState(BackupSettings())
     val scope = rememberCoroutineScope()
-    val gridState = rememberLazyGridState()
+    val gridState = rememberLazyGridState(initialFirstVisibleItemIndex = 1) // one-handed title starts collapsed
+    OneHandBehavior(gridState, hasContent = items.isNotEmpty())
     val selection = remember { SelectionState() }
     val actions = rememberMediaActions { selection.clear() }
     var level by remember(ui.gridLevel) { mutableStateOf(ui.gridLevel.takeIf { it in 0..5 } ?: DefaultGridLevel) }
@@ -107,7 +110,9 @@ fun PicturesTab(nav: NavController, onSelectionMode: (Boolean) -> Unit) {
             onLevelChange = { level = it; scope.launch { c.settings.setGridLevel(it) } },
             onOpen = { nav.openViewer(items, it, MediaSource.Timeline) },
             contentPadding = PaddingValues(top = top + 47.dp, bottom = bottom + 110.dp),
+            largeTitle = { OneHandHeader("Pictures", "%,d items".format(items.size)) },
             notBackedUp = { m: MediaItem -> showBadges && remoteLoaded && m.isLocalOnly && m.bucketId != null && m.bucketId in buckets },
+            backedUp = { m: MediaItem -> ui.showBackupBadges && account != null && remoteLoaded && m.isLocal && m.isRemote },
             header = if (showTip) {
                 {
                     item(key = "tip", span = { GridItemSpan(maxLineSpan) }) {

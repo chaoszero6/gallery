@@ -67,6 +67,8 @@ import app.gallery.ui.components.SectionHeader
 import app.gallery.ui.components.TopFade
 import app.gallery.ui.components.TopIconPill
 import app.gallery.ui.openGrid
+import app.gallery.ui.components.OneHandBehavior
+import app.gallery.ui.components.OneHandHeader
 import app.gallery.ui.theme.G
 import app.gallery.ui.theme.Sym
 import kotlinx.coroutines.launch
@@ -138,14 +140,20 @@ fun AlbumsTab(nav: NavController, @Suppress("UNUSED_PARAMETER") onSelectionMode:
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState(initialFirstVisibleItemIndex = 1)
+    OneHandBehavior(gridState, hasContent = sections.isNotEmpty())
     Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
+            state = gridState,
             contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = top + 58.dp, bottom = bottom + 110.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            item(key = "one-hand", span = { GridItemSpan(2) }) {
+                OneHandHeader("Albums", "%,d albums".format(sections.sumOf { it.second.size }))
+            }
             sections.forEachIndexed { i, (title, cards) ->
                 item(key = "h-$title", span = { GridItemSpan(2) }) {
                     if (i == 0) SectionHeader(title, Modifier.padding(start = 0.dp), action = "View all", size = 14.sp, onClick = { nav.navigate(Routes.ALBUMS_ALL) })

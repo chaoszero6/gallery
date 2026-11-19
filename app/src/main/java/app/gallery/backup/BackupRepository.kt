@@ -7,6 +7,8 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -19,7 +21,9 @@ import app.gallery.data.nextcloud.DavClient
 import app.gallery.data.repo.MediaRepository
 import app.gallery.data.settings.BackupSettings
 import app.gallery.data.settings.Settings
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.TimeUnit
@@ -48,6 +52,8 @@ class BackupRepository(
         data class Comparing(val step: String) : SyncState
         data class Ready(val plan: BackupPlanner.Plan, val at: Long) : SyncState
         data class Failed(val message: String) : SyncState
+        /** The missing items were handed to the upload job. */
+        data class Queued(val count: Int, val bytes: Long) : SyncState
     }
 
     private val _progress = MutableStateFlow(Progress())
@@ -129,7 +135,8 @@ class BackupRepository(
             UploadRecord(it.local.id, UploadRecord.QUEUED, it.targetPath, null, it.local.size, updatedAt = now)
         })
         settings.setLastSync(now, "${plan.present.size} on server · ${plan.missing.size} uploaded")
-        startUploads()
+        startUploads(userRequested = true)
+        _sync.value = SyncState.Queued(plan.missing.size, plan.missingBytes)
     }
 
     /**
@@ -158,10 +165,19 @@ class BackupRepository(
 
     suspend fun retryFailed() {
         db.uploads().retryFailed()
-        startUploads()
+        startUploads(userRequested = true)
     }
 
-    suspend fun startUploads() {
+    /** The upload job while it is queued or running (null when there is none). */
+    val uploadJob: Flow<WorkInfo?> = WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(UploadWorker.NAME)
+        .map { l -> l.firstOrNull { !it.state.isFinished } }
+
+    /**
+     * Starts the upload job. [userRequested] (an Upload / Upload now / Retry tap) replaces a job that
+     * is only waiting (for example in a retry back-off), instead of being ignored behind it, and asks
+     * Android to start it straight away. A running job is left alone: it picks up new items itself.
+     */
+    suspend fun startUploads(userRequested: Boolean = false) {
         val s = settings.backupNow()
         val c = Constraints.Builder()
             .setRequiredNetworkType(
@@ -173,11 +189,13 @@ class BackupRepository(
             )
             .setRequiresCharging(s.chargingOnly)
             .build()
-        val req = OneTimeWorkRequestBuilder<UploadWorker>()
+        val b = OneTimeWorkRequestBuilder<UploadWorker>()
             .setConstraints(c)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(UploadWorker.NAME, ExistingWorkPolicy.KEEP, req)
+        // Expedited jobs may only wait for the network, not for charging.
+        if (userRequested && !s.chargingOnly) b.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        val policy = if (userRequested && !_progress.value.running) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+        WorkManager.getInstance(context).enqueueUniqueWork(UploadWorker.NAME, policy, b.build())
     }
 
     fun cancelUploads() {

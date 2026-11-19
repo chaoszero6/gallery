@@ -68,15 +68,21 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val c = app
         if (c.accounts.account.value == null) return Result.success()
         val dao = c.db.uploads()
-        val queue = dao.pending()
+        var queue = dao.pending()
         if (queue.isEmpty()) return Result.success()
+        c.backup.setProgress(BackupRepository.Progress(true, "Preparing…", 0, queue.size, 0, queue.sumOf { it.size }))
         runCatching { setForeground(info("Preparing…", 0, queue.size)) }
-        val totalBytes = queue.sumOf { it.size }
+        // Totals grow if more items are queued while this run is going (another Upload tap, auto-upload).
+        var total = queue.size
+        var totalBytes = queue.sumOf { it.size }
+        val attempted = HashSet<Long>()
         var bytesDone = 0L
         var done = 0
         var retry = false
+        while (true) {
         for (rec0 in queue) {
             if (isStopped) break
+            attempted += rec0.localId
             val local = c.db.local().byId(rec0.localId)
             if (local == null) { // deleted from the phone meanwhile
                 dao.upsert(rec0.copy(status = UploadRecord.FAILED, error = "File no longer on phone"))
@@ -84,11 +90,11 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             }
             var rec = rec0.copy(status = UploadRecord.UPLOADING, attempts = rec0.attempts + 1, size = local.size, updatedAt = System.currentTimeMillis())
             dao.upsert(rec)
-            c.backup.setProgress(BackupRepository.Progress(true, local.name, done, queue.size, bytesDone, totalBytes))
-            runCatching { setForeground(info("${done + 1} of ${queue.size}: ${local.name}", done, queue.size)) }
+            c.backup.setProgress(BackupRepository.Progress(true, local.name, done, total, bytesDone, totalBytes))
+            runCatching { setForeground(info("${done + 1} of ${total}: ${local.name}", done, total)) }
             try {
                 val id = c.uploadEngine.upload(rec, applicationContext.contentResolver.byteSource(android.net.Uri.parse(local.uri)), local.mime, local.modifiedSec) { sent, _ ->
-                    c.backup.setProgress(BackupRepository.Progress(true, local.name, done, queue.size, bytesDone + sent, totalBytes))
+                    c.backup.setProgress(BackupRepository.Progress(true, local.name, done, total, bytesDone + sent, totalBytes))
                 }
                 rec = rec.copy(status = UploadRecord.DONE, remoteFileId = id, error = null, updatedAt = System.currentTimeMillis())
                 dao.upsert(rec)
@@ -99,7 +105,7 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 Log.w(TAG, "upload ${local.name} failed", e)
                 if (e.code == 507) {
                     dao.upsert(rec.copy(status = UploadRecord.QUEUED, error = "Nextcloud storage is full"))
-                    c.backup.setProgress(BackupRepository.Progress(false, null, done, queue.size, bytesDone, totalBytes, "Nextcloud storage is full"))
+                    c.backup.setProgress(BackupRepository.Progress(false, null, done, total, bytesDone, totalBytes, "Nextcloud storage is full"))
                     notifyError("Backup stopped: your Nextcloud storage is full.")
                     return Result.failure()
                 }
@@ -115,8 +121,14 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 break // network trouble: let WorkManager back off
             }
         }
+            if (isStopped || retry) break
+            queue = dao.pending().filter { it.localId !in attempted }
+            if (queue.isEmpty()) break
+            total += queue.size
+            totalBytes += queue.sumOf { it.size }
+        }
         c.settings.setLastAutoUpload(System.currentTimeMillis())
-        c.backup.setProgress(BackupRepository.Progress(false, null, done, queue.size, bytesDone, totalBytes))
+        c.backup.setProgress(BackupRepository.Progress(false, null, done, total, bytesDone, totalBytes))
         c.media.relink()
         return if (retry) Result.retry() else Result.success()
     }

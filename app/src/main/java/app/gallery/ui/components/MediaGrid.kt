@@ -177,14 +177,17 @@ fun MediaGrid(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     notBackedUp: (MediaItem) -> Boolean = { false },
+    backedUp: (MediaItem) -> Boolean = { false },
     showHeaders: Boolean = true,
     header: (LazyGridScope.() -> Unit)? = null,
+    /** One-handed large title, placed above everything else (see OneHandHeader). */
+    largeTitle: (@Composable () -> Unit)? = null,
 ) {
     val lv = GridLevels[level.coerceIn(GridLevels.indices)]
     val entries = remember(items, lv.grouping, showHeaders) {
         if (showHeaders) buildEntries(items, lv.grouping) else items.mapIndexed { i, m -> GridEntry.Cell(m, i) }
     }
-    val headerCount = if (header != null) 1 else 0
+    val headerCount = (if (largeTitle != null) 1 else 0) + (if (header != null) 1 else 0)
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val currentEntries by rememberUpdatedState(entries)
@@ -298,6 +301,7 @@ fun MediaGrid(
                     )
                 },
         ) {
+            if (largeTitle != null) item(key = "one-hand", span = { GridItemSpan(maxLineSpan) }, contentType = "one-hand") { largeTitle() }
             header?.invoke(this)
             for (e in entries) when (e) {
                 is GridEntry.Header -> item(key = e.key, span = { GridItemSpan(maxLineSpan) }, contentType = "h") {
@@ -312,6 +316,7 @@ fun MediaGrid(
                         selecting = selection.active,
                         selected = sel,
                         notBackedUp = notBackedUp(m),
+                        backedUp = backedUp(m),
                         compact = compact,
                         onExpand = { onOpen(m) },
                         sharedKey = m.key,
